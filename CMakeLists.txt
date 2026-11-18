@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CTest)
 
+option(BO1_BUILD_IOS_AUDIO "Build and link the pinned native mixer with iOS audio dependencies" OFF)
+if(BO1_BUILD_IOS_AUDIO)
+  include(cmake/ios_audio.cmake)
+endif()
+
 # This initial project builds platform components, not an engine or an IPA.
 # The real engine ABI and BO1IOSCreateHostServices adapter remain required.
 if(BUILD_TESTING AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")

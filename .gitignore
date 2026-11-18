@@ -1,6 +1,7 @@
 /build*/
 /vendor/
 /dist/
+/third_party/ios/
 *.ipa
 *.app/
 *.xcarchive/
