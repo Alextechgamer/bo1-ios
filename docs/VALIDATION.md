@@ -1,6 +1,57 @@
 # Validation — platform, native libraries, and diagnostics
 
-## Diagnostics app build — November 17, 2026 (Pacific time)
+## Steam-enabled diagnostics 0.2.0 — November 17, 2026 (Pacific time)
+
+Code revision: `d5366834bc8b67852defb99036d5229c19b2e7a7`.
+[Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44257224920).
+
+| Job / artifact | Observed result |
+| --- | --- |
+| `host-tests` | PASS: 17 platform, 49 input and 60 native-adapter checks, plus 226 real Steam filesystem checks with ASan/UBSan and the DXVK WSI harness |
+| `steam-swift-tests` | PASS: 113 checks against the actual selection, ownership parser, manifest, chunk verification and installation storage code |
+| `apple-sdk-compile` | PASS: complete Swift Steam client and UIKit UI, host, input frontend, Metal bridge and DXVK platform archives compiled for iPhone ARM64 |
+| `apple-native-link` | PASS: full native audio/graphics link probes and the Steam-enabled diagnostics app; unsigned IPA and evidence uploaded |
+| Downloaded IPA | Version 0.2.0, build 2; checksum, executable permission, plist, ARM64 iOS load commands, linked `BO1SteamGameFiles` class, Files-sharing flags, all 17 notices/provenance files, 38 Steam source hashes and 10 recipe hashes verified |
+| Downloaded link inputs | 196 object files, 15 static archives, 17 link-file lists, Swift module/documentation files, dependency headers and generated Xcode project; the new Swift client and four content C objects are present |
+
+The [IPA artifact](https://github.com/Alextechgamer/bo1-ios/actions/runs/44257224920/artifacts/14407080562)
+contains the unsigned app and JSON manifest. The IPA is **2,555,417 bytes** with SHA256:
+
+```text
+e6ebe7c5780d0b1e4f4c3e1297b39c17ec86e08a340ab1f6a4549f03d2bee193
+```
+
+The bundle remains `com.alextechgamer.bo1ios.diagnostics`, displayed as
+**BO1 Port Diagnostics**, and targets iOS 16.0. The build used Xcode 16.4,
+Apple Clang 17, Swift 6.1.2 in Swift 5 language mode, and iPhoneOS SDK 18.5.
+The executable preserves PIE and the protected first 4 GiB. Its dynamic
+dependencies are Apple system libraries/frameworks, including Swift and
+`libcompression`; the IPA contains no separately embedded frameworks. The
+imported Zstandard C decoder emits integer-narrowing warnings; the Apple build
+does not claim a warning-free compile.
+
+The [native evidence](https://github.com/Alextechgamer/bo1-ios/actions/runs/44257224920/artifacts/14406118652)
+and [retained link inputs](https://github.com/Alextechgamer/bo1-ios/actions/runs/44257224920/artifacts/14406631250)
+were downloaded and their artifact SHA256 values matched GitHub's records.
+All three artifact archives passed checksum verification. Retaining objects
+does not claim that a modified binary has been relinked or run on a phone.
+
+The Swift suite exercises real cancellation and child-process interruption,
+rollback/recovery, case-preserving paths, orphan-backup refusal, ownership
+selection, malformed metadata, and corrupted/deleted/truncated resumed chunks.
+Its explicit test-only logging and account-revision substitutes avoid Keychain
+and network access; it does not substitute the actual content or storage code.
+Earlier runs caught and corrected `libcompression` linkage, a fortified-GCC
+test diagnostic, and Foundation's shortening of `/private/var` back to `/var`.
+The final run passes with all test assertions and containment checks enabled.
+
+**Live Steam sign-in/Steam Guard, an owned multi-gigabyte download, and iPhone
+installation/execution have not been observed.** The app includes the real
+sign-in/download UI and client, but these offline fixtures and SDK builds do
+not establish live service or device success. The native gameplay engine is
+still unavailable. See [Steam flow and scope](STEAM_DOWNLOADS.md).
+
+## Diagnostics app build 0.1.0 — November 17, 2026 (Pacific time)
 
 Code revision: `9e54ea9fedda8592df80c0f4601e62c12d5cef62`.
 [Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44246156402).
@@ -139,7 +190,8 @@ exercise a real Vulkan driver or a UIKit view.
 
 - A compatible iOS implementation of the BO1 ptr32/low-address memory model.
 - The real `BO1IOSCreateHostServices` engine/HUD/input/lifecycle adapter.
-- Steam sign-in, ownership/depot selection or downloads through this project.
+- A live Steam sign-in/Steam Guard flow and owned-content download on an iPhone;
+  offline package selection, parsing, verification and recovery tests pass as recorded above.
 - A rendered game frame, map loading, audio, touch/controller gameplay,
   aim assist, memory behavior, safe backgrounding or performance on an iPhone.
 - Successful signing/installation or execution of the diagnostics IPA on an iPhone.
