@@ -1,0 +1,34 @@
+# Pinned reusable Steam client imported from BO2; see ios/SteamAuth/UPSTREAM.md.
+set(BO1_STEAM_CORE_SWIFT_SOURCES
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Auth/SteamAuthAPI.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Auth/SteamCredentialAuth.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Auth/SteamQRAuth.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Auth/SteamTokenStore.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Core/SteamError.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Helpers/SteamDevice.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Helpers/SteamLog.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/Proto/SteamProtoMessages.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/SteamSignIn.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/SteamSignInBridge.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamAuth/SteamSignInView.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/ContentDecryptor.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/DepotDownloader.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/DepotManifest.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/CMServerList.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/LicenseListBox.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/SteamCMSession.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/SteamConnection.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/SteamMessageCodec.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/SteamProtocol.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Core/SteamSession.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Library/SteamAppInfo.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Library/SteamFileError.swift"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Library/SteamLibraryFetcher.swift"
+)
+
+set(BO1_STEAM_CONTENT_C_SOURCES
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/chunk_zip.c"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/lzma_shim.c"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/zstd_edu.c"
+  "${PROJECT_SOURCE_DIR}/ios/SteamServices/Content/steam_safe_files.c"
+)

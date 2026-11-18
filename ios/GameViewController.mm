@@ -1,5 +1,6 @@
 #import "GameViewController.h"
 #import "include/ios_platform_bridge.h"
+#import "include/BO1SteamGameFiles.h"
 #include "include/bo1_asset_gate.h"
 #import <QuartzCore/QuartzCore.h>
 #include <algorithm>
@@ -141,7 +142,7 @@ static void *BO1RunGameThread(void *rawContext) {
     title.textAlignment = NSTextAlignmentCenter;
 
     UILabel *instructions = [UILabel new];
-    instructions.text = @"Copy your own Black Ops game files into Files → On My iPhone → Black Ops 1 → game. Keep the original folders, then tap Check Files.";
+    instructions.text = @"Download your Black Ops game files by signing in to Steam, or copy them into Files → On My iPhone → Black Ops 1 → game. Keep the original folders, then tap Check Files.";
     instructions.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     instructions.adjustsFontForContentSizeCategory = YES;
     instructions.textColor = UIColor.whiteColor;
@@ -165,14 +166,12 @@ static void *BO1RunGameThread(void *rawContext) {
     content.axis = UILayoutConstraintAxisVertical;
     content.spacing = 16;
     content.translatesAutoresizingMaskIntoConstraints = NO;
-    if ([_services respondsToSelector:@selector(makeGameDownloadViewControllerForDirectory:completion:error:)]) {
-        _downloadButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        _downloadButton.configuration = [UIButtonConfiguration borderedButtonConfiguration];
-        [_downloadButton setTitle:@"Download Game Files" forState:UIControlStateNormal];
-        [_downloadButton addTarget:self action:@selector(openGameDownloader) forControlEvents:UIControlEventTouchUpInside];
-        _downloadButton.accessibilityIdentifier = @"bo1-download-files";
-        [content addArrangedSubview:_downloadButton];
-    }
+    _downloadButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _downloadButton.configuration = [UIButtonConfiguration borderedButtonConfiguration];
+    [_downloadButton setTitle:@"Download Game Files" forState:UIControlStateNormal];
+    [_downloadButton addTarget:self action:@selector(openGameDownloader) forControlEvents:UIControlEventTouchUpInside];
+    _downloadButton.accessibilityIdentifier = @"bo1-download-files";
+    [content addArrangedSubview:_downloadButton];
     [_setupPanel addSubview:content];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
@@ -415,21 +414,26 @@ static void *BO1RunGameThread(void *rawContext) {
 }
 
 - (void)openGameDownloader {
-    if (_launchAttempted || _downloadInProgress || !_gameDirectory || self.presentedViewController ||
-        ![_services respondsToSelector:@selector(makeGameDownloadViewControllerForDirectory:completion:error:)]) return;
+    if (_launchAttempted || _downloadInProgress || !_gameDirectory || self.presentedViewController) return;
     _downloadInProgress = YES;
     const NSUInteger generation = ++_downloadGeneration;
     _checkFilesButton.enabled = _downloadButton.enabled = NO;
     __weak BO1GameViewController *weakSelf = self;
     NSError *error = nil;
-    UIViewController *controller = [_services makeGameDownloadViewControllerForDirectory:_gameDirectory
-        completion:^(NSError *downloadError) {
+    void (^completion)(NSError *) = ^(NSError *downloadError) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 BO1GameViewController *strongSelf = weakSelf;
                 if (!strongSelf || generation != strongSelf->_downloadGeneration) return;
                 [strongSelf downloadFinishedWithError:downloadError];
             });
-        } error:&error];
+        };
+    UIViewController *controller;
+    if ([_services respondsToSelector:@selector(makeGameDownloadViewControllerForDirectory:completion:error:)]) {
+        controller = [_services makeGameDownloadViewControllerForDirectory:_gameDirectory
+            completion:completion error:&error];
+    } else {
+        controller = [BO1SteamGameFiles makeViewControllerForDirectory:_gameDirectory completion:completion];
+    }
     if (!controller) {
         ++_downloadGeneration;
         _downloadInProgress = NO;

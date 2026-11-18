@@ -1,6 +1,7 @@
 #import "DiagnosticsViewController.h"
 #import "DiagnosticsProbes.h"
 #import "BO1InputFrontend.h"
+#import "BO1SteamGameFiles.h"
 #import <AVFoundation/AVFoundation.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
@@ -66,7 +67,8 @@ void setTitle(UIButton *button, NSString *title) {
 
 @implementation BO1DiagnosticsViewController {
     UISegmentedControl *_mode;
-    UIButton *_runButton, *_audioButton, *_shareButton;
+    UIButton *_runButton, *_audioButton, *_shareButton, *_filesButton;
+    UIViewController *_gameFilesController;
     UIStackView *_actions;
     UITextView *_reportView;
     UILabel *_liveInput;
@@ -119,7 +121,7 @@ void setTitle(UIButton *button, NSString *title) {
     title.adjustsFontForContentSizeCategory = YES;
     title.accessibilityTraits |= UIAccessibilityTraitHeader;
     UILabel *scope = [UILabel new];
-    scope.text = @"Game engine unavailable. This app tests platform components only.";
+    scope.text = @"Download game files and test platform components. Game engine unavailable.";
     scope.font = [[UIFontMetrics metricsForTextStyle:UIFontTextStyleFootnote]
         scaledFontForFont:[UIFont systemFontOfSize:13] maximumPointSize:18];
     scope.textColor = UIColor.secondaryLabelColor;
@@ -134,9 +136,12 @@ void setTitle(UIButton *button, NSString *title) {
     _runButton = [self button:@"Run checks" action:@selector(runChecks)];
     _audioButton = [self button:@"Test audio" action:@selector(testAudio)];
     _shareButton = [self button:@"Share report" action:@selector(shareReport)];
+    _filesButton = [self button:@"Game files" action:@selector(openGameFiles)];
+    _filesButton.accessibilityIdentifier = @"bo1-steam-game-files";
+    _filesButton.accessibilityHint = @"Sign in to Steam and download your Black Ops game files.";
     _audioButton.accessibilityHint = @"Plays a brief, low-volume tone through the native audio mixer.";
     _shareButton.accessibilityHint = @"Opens the system share sheet. Nothing is shared automatically.";
-    _actions = [[UIStackView alloc] initWithArrangedSubviews:@[_runButton, _audioButton, _shareButton]];
+    _actions = [[UIStackView alloc] initWithArrangedSubviews:@[_filesButton, _runButton, _audioButton, _shareButton]];
     _actions.spacing = 8;
     _actions.distribution = UIStackViewDistributionFillEqually;
 
@@ -378,7 +383,7 @@ void setTitle(UIButton *button, NSString *title) {
 }
 - (void)refreshReport { if (_reportView) _reportView.text = [self currentReport]; }
 - (void)updateButtons {
-    _runButton.enabled = _audioButton.enabled = _shareButton.enabled = _active && !_probeRunning;
+    _runButton.enabled = _audioButton.enabled = _shareButton.enabled = _filesButton.enabled = _active && !_probeRunning;
     _mode.enabled = !_probeRunning;
     setTitle(_runButton, _probeRunning ? @"Running…" : @"Run checks");
     setTitle(_audioButton, _tonePlaying ? @"Stop audio" : @"Test audio");
@@ -483,6 +488,42 @@ void setTitle(UIButton *button, NSString *title) {
     _audioReport = message;
     [self updateButtons];
     [self refreshReport];
+}
+
+- (void)openGameFiles {
+    if (!_active || _probeRunning || self.presentedViewController) return;
+    [self stopAudio:@"Stopped before opening game files."];
+    NSError *error = nil;
+    NSURL *documents = [NSFileManager.defaultManager URLForDirectory:NSDocumentDirectory
+        inDomain:NSUserDomainMask appropriateForURL:nil create:YES error:&error];
+    if (!documents) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Game files"
+            message:error.localizedDescription ?: @"The Documents folder could not be opened."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+    __weak BO1DiagnosticsViewController *weakSelf = self;
+    _gameFilesController = [BO1SteamGameFiles makeViewControllerForDirectory:
+        [documents URLByAppendingPathComponent:@"game" isDirectory:YES]
+        completion:^(NSError *downloadError) {
+            (void)downloadError; // The Game Files screen presents actionable errors.
+            dispatch_async(dispatch_get_main_queue(), ^{
+                BO1DiagnosticsViewController *owner = weakSelf;
+                if (!owner) return;
+                if (owner.presentedViewController == owner->_gameFilesController) {
+                    [owner dismissViewControllerAnimated:YES completion:^{
+                        owner->_gameFilesController = nil;
+                    }];
+                } else {
+                    owner->_gameFilesController = nil;
+                }
+            });
+        }];
+    _gameFilesController.modalPresentationStyle = UIModalPresentationPageSheet;
+    _gameFilesController.modalInPresentation = YES;
+    [self presentViewController:_gameFilesController animated:YES completion:nil];
 }
 
 - (void)shareReport {

@@ -27,12 +27,16 @@ jobs:
           python3 ios/input/apply_engine_input.py vendor/bo1-engine
       - name: Test startup, display state and native input contracts
         run: python3 scripts/run_host_tests.py --sanitize address,undefined --engine-source vendor/bo1-engine
+      - name: Test Steam file containment with sanitizers
+        run: python3 scripts/test_steam_safe_files.py --sanitize address,undefined
       - name: Test real DXVK WSI interface and static loader
         run: python3 graphics/tests/run_wsi_tests.py vendor/dxvk
   apple-sdk-compile:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Test Steam selection, content verification and installation recovery
+        run: python3 scripts/test_steam_selection_storage.py
       - name: Fetch pinned DXVK source
         run: |
           git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk
@@ -44,7 +48,7 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=cmake/ios.cmake
           -DBO1_BUILD_IOS_PLATFORM=ON -DBUILD_TESTING=OFF
           -DBO1_DXVK_SOURCE_DIR="$PWD/vendor/dxvk"
-      - name: Compile UIKit, Metal bridge, and DXVK platform archives
+      - name: Compile UIKit, Steam client, Metal bridge and DXVK platform archives
         run: cmake --build build-ios --config Release -- CODE_SIGNING_ALLOWED=NO
   apple-native-link:
     runs-on: macos-15
@@ -124,6 +128,13 @@ jobs:
             vendor/ffmpeg/LICENSE.md
             vendor/ffmpeg/COPYING.LGPLv2.1
             third_party/ios/MoltenVK/LICENSE
+            ios/SteamAuth/COPYING
+            ios/SteamAuth/LICENSE-EXCEPTION.md
+            ios/SteamAuth/UPSTREAM.md
+            ios/SteamAuth/IMPORT.json
+            ios/SteamServices/Content/ZSTD-LICENSE
+            build-ios-native/**/*.swiftmodule
+            build-ios-native/**/*.swiftdoc
           if-no-files-found: error
 # This IPA runs platform diagnostics; it contains no game engine or game assets.
 # Game packaging follows a real linked engine/HUD/renderer adapter and ABI proof.

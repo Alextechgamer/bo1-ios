@@ -15,6 +15,7 @@ from probe_engine_abi import inspect_macho
 ROOT = Path(__file__).resolve().parents[1]
 DXVK_REVISION = "2b1a284f8453baa2bd193709b67e5183074c74ba"
 ENGINE_REVISION = "3401a66355c07d6c590049c2f42b7635c9bf00ac"
+STEAM_BO2_REVISION = "26aad790810596cf1038a5bca42bcf8789ccb54f"
 # Digests of the complete, unchanged notice files in the pinned sources/package.
 LICENSES = (
     ("sdl2", "LICENSE.txt", "SDL2-LICENSE.txt",
@@ -69,6 +70,17 @@ def bundled_notices(source_root, deps_root):
     # for the game engine or the separate native mixer compiled by diagnostics.
     files["BO1-upstream-NOTICE.md"] = required_file(source_root / "bo1-engine/NOTICE.md")
     files["BO1-upstream-THIRD_PARTY_NOTICES.md"] = required_file(source_root / "bo1-engine/THIRD_PARTY_NOTICES.md")
+    for path, name, digest in (
+        ("ios/SteamAuth/COPYING", "SteamAuth-COPYING",
+         "e6037104443f9a7829b2aa7c5370d0789a7bda3ca65a0b904cdc0c2e285d9195"),
+        ("ios/SteamAuth/LICENSE-EXCEPTION.md", "SteamAuth-LICENSE-EXCEPTION.md",
+         "534f059c2e9fe5de1acde82b920651b77ea3b4253f86837a3d6a81f54a5bdbbc"),
+        ("ios/SteamServices/Content/ZSTD-LICENSE", "Steam-Zstandard-LICENSE",
+         "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"),
+    ):
+        files[name] = required_file(ROOT / path, digest)
+    files["SteamAuth-UPSTREAM.md"] = required_file(ROOT / "ios/SteamAuth/UPSTREAM.md")
+    files["SteamAuth-IMPORT.json"] = required_file(ROOT / "ios/SteamAuth/IMPORT.json")
     audio = json.loads(files["audio-build.json"])
     moltenvk = json.loads(files["MoltenVK-build.json"])
     if audio.get("target") != "arm64-apple-ios":
@@ -82,7 +94,8 @@ def bundled_notices(source_root, deps_root):
 
     recipe_paths = ("scripts/build_ios_deps.py", "scripts/ios_dependencies.json",
                     "cmake/ios_audio.cmake", "cmake/dxvk-static.cmake", "cmake/dxvk-sources.cmake",
-                    "cmake/ios_diagnostics.cmake", "patches/dxvk/apply.py", "scripts/package_diagnostics.py")
+                    "cmake/ios_diagnostics.cmake", "cmake/ios_steam.cmake", "cmake/steam-sources.cmake",
+                    "patches/dxvk/apply.py", "scripts/package_diagnostics.py")
     project_revision = revision(ROOT)
     repository = f"https://github.com/Alextechgamer/bo1-ios/blob/{project_revision}/"
     provenance = {
@@ -97,6 +110,11 @@ def bundled_notices(source_root, deps_root):
                 "files": ["src/native/native_audio.cpp", "src/native/native_audio.h"],
                 "license_grant_inferred": False,
             },
+            "Steam_client": {
+                "url": "https://github.com/Alextechgamer/bo2-ios.git", "revision": STEAM_BO2_REVISION,
+                "original_upstream": "https://github.com/kuscholar/iDeck/tree/2ac39beff91251d36f3ad6331d3f8402b3c10e18",
+                "alterations": "BO1 package selection, UIKit integration, staging/recovery and content verification",
+            },
         },
         "build_recipes": [{"path": path, "url": repository + path,
                            "sha256": hashlib.sha256(required_file(ROOT / path)).hexdigest()}
@@ -104,6 +122,11 @@ def bundled_notices(source_root, deps_root):
         "dxvk_patches": [{"path": str(path.relative_to(ROOT)),
                           "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                          for path in sorted((ROOT / "patches/dxvk").glob("[0-9][0-9][0-9][0-9]-*.patch"))],
+        "steam_sources": [{"path": str(path.relative_to(ROOT)),
+                           "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                          for directory in (ROOT / "ios/SteamAuth", ROOT / "ios/SteamServices")
+                          for path in sorted(directory.rglob("*"))
+                          if path.is_file() and path.suffix in (".swift", ".c", ".h")],
         "notices": {name: {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
                     for name, data in sorted(files.items())},
         "receipts": ["audio-build.json", "MoltenVK-build.json"],

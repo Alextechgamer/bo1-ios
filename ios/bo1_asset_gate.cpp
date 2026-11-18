@@ -10,6 +10,12 @@ AssetGateResult InspectStartupAssets(const std::filesystem::path& root) {
         return {false, {}, error ? "Cannot read the game folder: " + error.message()
                                 : "The game folder is missing."};
     }
+    error.clear();
+    const auto installing = std::filesystem::symlink_status(root / ".bo1-install-in-progress.json", error);
+    if ((error && error != std::errc::no_such_file_or_directory) ||
+        (!error && installing.type() != std::filesystem::file_type::not_found)) {
+        return {false, {}, "Game file installation needs to finish or recover. Open Download Game Files before launching."};
+    }
     constexpr std::array candidates{
         "zone/Common/common.ff", "zone/Common/common_zombie.ff",
     };

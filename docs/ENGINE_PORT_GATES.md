@@ -106,11 +106,15 @@ exclusive input-producer ownership and lifecycle reset hook. The diagnostics
 app tests input transport; gameplay and menu behavior remain separate checks.
 See [the input integration contract](INPUT.md).
 
-The current Steam implementation is a Swift service in
-`ios/SteamServices/BO2GameDownload.swift`, driven by the launcher, not a ready
-download view controller. It selects BO2 AppIDs and a different destination.
-Its completion flag also represents errors/cancellation. Shared depot/DLC
-eligibility logic must be adapted, rather than just replacing a depot table.
+The BO2 Swift Steam authentication/content client is now adapted into a BO1
+Game Files controller. It uses BO1 ownership AppIDs, current PICS manifests,
+explicit package/language selection and Documents/game. It stages content,
+verifies resumed chunks and publishes with recovery bookkeeping; an unfinished
+publication marker closes the native host's asset gate. Account-change and
+background cancellation must drain writers before a host completion callback.
+The diagnostics app exposes this controller independently of the engine.
+See [Steam downloads](STEAM_DOWNLOADS.md); a live account/download still needs
+device verification and does not establish gameplay support.
 
 Sources: [BO2 touch overlay](https://github.com/Alextechgamer/bo2-ios/blob/26aad790810596cf1038a5bca42bcf8789ccb54f/ios/TouchOverlay.m),
 [BO2 Steam downloader](https://github.com/Alextechgamer/bo2-ios/blob/26aad790810596cf1038a5bca42bcf8789ccb54f/ios/SteamServices/BO2GameDownload.swift).

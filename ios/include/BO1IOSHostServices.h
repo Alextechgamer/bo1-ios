@@ -56,8 +56,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @optional
 
-// Provide a real BO1 download flow, with the correct account/ownership checks,
-// AppIDs and target directory. No BO2 downloader is selected implicitly.
+// Optionally replace the bundled BO1 Steam download flow with another real
+// provider. The default host uses BO1SteamGameFiles when this method is absent.
+// A replacement must preserve correct account/ownership checks and AppIDs.
 // Call completion on the main queue after completion, cancellation or error.
 // Supply a visible Cancel control, stop all writes, then invoke completion
 // with a cancellation error. The host disables interactive sheet dismissal,

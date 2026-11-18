@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(BO1IOSPlatform VERSION 0.1.0 LANGUAGES CXX)
+project(BO1IOSPlatform VERSION 0.2.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -34,6 +34,7 @@ if(BO1_BUILD_IOS_PLATFORM)
   set(CMAKE_OBJCXX_STANDARD 20)
   set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
   set(CMAKE_OBJCXX_EXTENSIONS OFF)
+  include(cmake/ios_steam.cmake)
   bo1_add_input_frontend()
   set(BO1_VULKAN_INCLUDE "${BO1_DXVK_SOURCE_DIR}/include/vulkan/include")
   add_library(bo1_ios_host STATIC
@@ -45,7 +46,7 @@ if(BO1_BUILD_IOS_PLATFORM)
     ios/ios_platform_bridge.mm ios/main.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
   target_compile_definitions(bo1_ios_host PUBLIC PLATFORM_IOS=1 VK_USE_PLATFORM_METAL_EXT=1)
   target_link_libraries(bo1_ios_host INTERFACE "-framework Foundation" "-framework UIKit"
-    "-framework Metal" "-framework QuartzCore")
+    "-framework Metal" "-framework QuartzCore" bo1_steam_services)
   add_library(bo1_ios_entrypoint OBJECT ios/main.mm)
   set_target_properties(bo1_ios_host bo1_ios_entrypoint PROPERTIES
     XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES")

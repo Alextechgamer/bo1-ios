@@ -4,7 +4,8 @@ This project builds the separately named **BO1 Port Diagnostics** app. That
 binary includes platform/input code authored for this project, the independent
 native audio mixer compiled from the pinned BO1 upstream, and static dependency
 code. It does not include the gameplay engine or commercial game assets. No
-BO2 HUD or Steam service source has been copied into this repository.
+BO2 HUD source is included. The Steam sign-in and content client is adapted
+from the pinned BO2 port as described below.
 
 ## Notices bundled in the diagnostics IPA
 
@@ -33,6 +34,26 @@ The notice directory also contains this document, `provenance.json`,
 The provenance file records source revisions, package checksum, recipe and
 patch hashes, upstream links, and notice hashes. The adjacent IPA manifest
 records the included notice hashes as well as the executable and IPA hashes.
+
+## Steam sign-in and content client
+
+The Swift Steam client and content decoders under `ios/SteamAuth/` and
+`ios/SteamServices/` are adapted from `Alextechgamer/bo2-ios` commit
+`26aad790810596cf1038a5bca42bcf8789ccb54f`, whose reusable client comes from
+`kuscholar/iDeck` commit `2ac39beff91251d36f3ad6331d3f8402b3c10e18`.
+Original authorship and per-file notices are retained. BO1-specific changes
+include package selection, UIKit integration, private download staging,
+installation recovery and stricter file/content verification.
+
+The complete `ios/SteamAuth/COPYING`, `LICENSE-EXCEPTION.md`, and
+`UPSTREAM.md` are bundled with the IPA. The Zstandard educational decoder's
+own notice is preserved as `Steam-Zstandard-LICENSE`. The Swift Steam client
+identifies GPL-3.0-or-later and the included Madeira Converter Exception;
+the copied exception is retained unchanged. Source pins and hashes of the
+vendored Swift/C/header files are recorded in the package provenance.
+
+No account credentials, Steam executables or game files are bundled.
+Steam login and owned content downloads occur on the user's device.
 
 ## Native audio source
 

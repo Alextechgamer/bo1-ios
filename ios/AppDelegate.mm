@@ -2,6 +2,7 @@
 #import "GameViewController.h"
 #import "include/BO1IOSHostServices.h"
 #import "include/ios_platform_bridge.h"
+#import "include/BO1SteamGameFiles.h"
 
 @interface BO1AppDelegate ()
 @property(nonatomic, strong) BO1GameViewController *gameController;
@@ -53,6 +54,7 @@
     // Idempotent: also covers a lifecycle transition not preceded by a normal
     // active UI session. The controller will not issue duplicate drain calls.
     [self.gameController setApplicationActive:NO];
+    [BO1SteamGameFiles applicationDidEnterBackground];
 }
 
 - (void)applicationDidBecomeActive:(UIApplication *)application {

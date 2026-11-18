@@ -4,7 +4,7 @@ include_guard(GLOBAL)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
   message(FATAL_ERROR "BO1 Port Diagnostics packages a real iphoneos app, not a simulator or host binary.")
 endif()
-foreach(_bo1_diagnostic_target bo1_ios_host bo1_dxvk_d3d9 bo1_native_audio bo1_input_frontend)
+foreach(_bo1_diagnostic_target bo1_ios_host bo1_dxvk_d3d9 bo1_native_audio bo1_input_frontend bo1_steam_services)
   if(NOT TARGET "${_bo1_diagnostic_target}")
     message(FATAL_ERROR "Diagnostics requires the real ${_bo1_diagnostic_target} target first.")
   endif()
@@ -33,6 +33,7 @@ set_target_properties(bo1_port_diagnostics PROPERTIES
   XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
   XCODE_ATTRIBUTE_SUPPORTED_PLATFORMS "iphoneos"
   XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+  XCODE_ATTRIBUTE_ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES YES
   XCODE_ATTRIBUTE_ENABLE_BITCODE NO
   XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED NO
   XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED NO)
@@ -52,7 +53,7 @@ target_compile_definitions(bo1_port_diagnostics PRIVATE SDL_MAIN_HANDLED=1
 target_include_directories(bo1_port_diagnostics PRIVATE
   "${PROJECT_SOURCE_DIR}/ios/Diagnostics")
 target_link_libraries(bo1_port_diagnostics PRIVATE
-  bo1_ios_host bo1_dxvk_d3d9 bo1_native_audio bo1_input_frontend "${_bo1_diagnostic_mvk}"
+  bo1_ios_host bo1_dxvk_d3d9 bo1_native_audio bo1_input_frontend bo1_steam_services "${_bo1_diagnostic_mvk}"
   "-framework Foundation" "-framework UIKit" "-framework QuartzCore" "-framework Metal"
   "-framework CoreGraphics" "-framework IOSurface" "-framework AVFoundation" "-framework GameController")
 # Ordinary archive extraction is intentional: only the host bridge is needed

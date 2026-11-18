@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import "DiagnosticsViewController.h"
+#import "BO1SteamGameFiles.h"
 
 @interface BO1DiagnosticsAppDelegate : UIResponder <UIApplicationDelegate>
 @property(nonatomic, strong) UIWindow *window;
@@ -26,6 +27,7 @@
 - (void)applicationDidEnterBackground:(UIApplication *)application {
     (void)application;
     [self.diagnostics setApplicationActive:NO];
+    [BO1SteamGameFiles applicationDidEnterBackground];
 }
 - (void)applicationWillTerminate:(UIApplication *)application {
     (void)application;

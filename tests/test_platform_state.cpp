@@ -40,6 +40,14 @@ static void testAssets(const fs::path& root) {
     write(common, "startup presence fixture");
     result = bo1ios::InspectStartupAssets(root);
     require(result.present && result.relativePath == "zone/Common/common.ff", "common archive precedence failed");
+    const auto installing = root / ".bo1-install-in-progress.json";
+    write(installing, "interrupted installation fixture");
+    require(!bo1ios::InspectStartupAssets(root).present, "interrupted install accepted with an existing common archive");
+    fs::remove(installing);
+    require(bo1ios::InspectStartupAssets(root).present, "completed rollback/commit did not reopen asset gate");
+    fs::create_symlink(root / "absent-transaction", installing);
+    require(!bo1ios::InspectStartupAssets(root).present, "dangling transaction marker accepted");
+    fs::remove(installing);
     fs::remove(common);
     fs::remove(zombie);
     write(root / "elsewhere.ff", "unrelated file");

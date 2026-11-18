@@ -8,6 +8,13 @@ claim that an engine ABI or renderer works. Its bundle identifier is
 
 ## On-device checks
 
+**Game files** opens the BO1 Steam setup screen. It supports password/QR and
+Steam Guard sign-in, owned package selection and downloads into Documents/game.
+The current diagnostics app still does not launch the game after downloading.
+See [Steam downloads](../../docs/STEAM_DOWNLOADS.md) for the install location,
+resume/recovery behavior and verification limits. This screen's account data
+is not included in the diagnostics report.
+
 **Report** shows the execution environment and check results. Tap **Run
 checks** to create a real Vulkan instance through the linked MoltenVK,
 create a real surface from the registered `CAMetalLayer`, query each

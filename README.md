@@ -14,6 +14,7 @@ Native ARM64 iOS port work for Black Ops, targeting iOS 16 or later. Intended ga
 | DXVK | Complete pinned v2.6.1 D3D9 static build, 60 generated shaders, Metal WSI, Apple portability fixes, isolated factory exports and a whole-archive link probe against static MoltenVK. Runtime feature compatibility is blocked below. |
 | Audio | Pinned CoreAudio SDL2 and minimal FFmpeg builds; compilation of the actual native BO1 software mixer and a real device link probe. |
 | Diagnostics app | Separate entrypoint for checking real Vulkan capabilities and Metal surface creation, memory addresses, touch/controller input and an explicit PCM audio test. It invokes no engine and needs no game files. |
+| Steam game files | BO2-derived Swift password/QR/Steam Guard sign-in and owned-content download flow, adapted for BO1 with package/language selection, cancellation, staging and recovery into Documents/game. |
 | Engine ABI experiments | Actual Apple compiler layout/codegen checks, ordinary iOS Mach-O/PIE/PAGEZERO checks, image-arena experiments and a device address diagnostic. |
 | CI | Host behavior tests, Apple SDK compilation, complete native-library linkage, diagnostics packaging, and a separate strict engine-ABI experiment workflow. |
 
@@ -33,7 +34,7 @@ The `Verify iOS platform source` workflow uploads `BO1-Port-Diagnostics-Unsigned
 
 The IPA includes the pinned dependencies' notices and build provenance. The same run retains native objects, static libraries and link metadata in `BO1-Diagnostics-Link-Inputs`; these are build inputs, not a separately verified relinking tool.
 
-Use **Run checks** to collect memory and Vulkan evidence, **Control test** to test the HUD/controller, and **Test audio** for the generated test tone. **Share report** exports results only when tapped. Installation and execution on an actual iPhone are separate from CI's successful app build.
+Use **Game files** to sign in to Steam and download your owned BO1 content. Use **Run checks** to collect memory and Vulkan evidence, **Control test** to test the HUD/controller, and **Test audio** for the generated test tone. **Share report** exports results only when tapped. Installation and execution on an actual iPhone are separate from CI's successful app build.
 
 This app uses its own entrypoint. It does not supply a fake `BO1IOSCreateHostServices` implementation or pretend to launch `Sys_Main`. The actual upstream engine enters its file-local `EngineMain`; that boundary still needs the compatible engine address model and synchronized lifecycle.
 
@@ -70,8 +71,9 @@ The separate [engine-ABI workflow](.github/workflows/probe-engine-abi.yml) retai
 
 - [Engine port gates](docs/ENGINE_PORT_GATES.md): entrypoint, rendering/audio lifecycle, asset delivery and gameplay work still required.
 - [Native input](docs/INPUT.md): frame ownership, bindings, menus, suspension, patch application and engine source selection.
+- [Steam downloads](docs/STEAM_DOWNLOADS.md): sign-in, owned packages, depot selection, install location, cancellation and recovery.
 - [Dependencies](docs/DEPENDENCIES.md): exact pins, enabled audio formats, checksums, compiler receipts and static library builds.
 - [Graphics](graphics/README.md): full D3D9 build, WSI, static exports and the real driver capability query.
 - [Source provenance](THIRD_PARTY_NOTICES.md): dependency and source notices.
 
-Steam sign-in, entitlement/depot selection and downloads have not been wired into this project. The eventual game host's Files gate checks only the presence of a readable nonempty startup archive; it is not a complete installation check. The upstream feature table lists campaign as unavailable, so campaign remains separate engine work after the iOS foundation is solved.
+The eventual game host's Files gate rejects an unfinished installation marker and checks for a readable nonempty startup archive; it is not a complete installation check. A Steam download does not resolve the engine's remaining port requirements. The upstream feature table lists campaign as unavailable, so campaign remains separate engine work after the iOS foundation is solved.
