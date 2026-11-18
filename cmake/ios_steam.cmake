@@ -29,4 +29,4 @@ set_target_properties(bo1_steam_services PROPERTIES
 target_include_directories(bo1_steam_services PUBLIC "${PROJECT_SOURCE_DIR}/ios/include")
 target_link_libraries(bo1_steam_services PUBLIC bo1_steam_content
   "-framework Foundation" "-framework UIKit" "-framework SwiftUI"
-  "-framework Security" "-framework CoreImage" "-framework Compression")
+  "-framework Security" "-framework CoreImage" compression)

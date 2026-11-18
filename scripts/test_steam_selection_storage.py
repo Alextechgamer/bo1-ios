@@ -37,7 +37,7 @@ def main():
                    root / "tests/steam_host_support.swift", root / "tests/steam_selection_storage_tests.swift"]
         command += ["-swift-version", "5", "-parse-as-library", "-import-objc-header",
                     str(root / "ios/SteamSwiftBridge.h")]
-        command += list(map(str, sources)) + objects + ["-lz", "-llzma", "-framework", "Compression", "-o", binary]
+        command += list(map(str, sources)) + objects + ["-lz", "-llzma", "-lcompression", "-o", binary]
         if args.sanitize != "none":
             command += ["-g", "-sanitize=" + args.sanitize]
         subprocess.run(command, check=True, timeout=180)

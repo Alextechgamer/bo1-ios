@@ -98,7 +98,7 @@ download journals/staging stay outside that shared game directory.
 
 `cmake/ios_steam.cmake` builds the Swift client/UI in one module using Swift 5
 language mode, plus the C chunk decoders and contained-file helper. It links
-the system Apple frameworks, zlib and liblzma. No BO2 runtime, translated game
+the system Apple frameworks, libcompression, zlib and liblzma. No BO2 runtime, translated game
 memory or game-ticket adapter is needed for these downloads.
 
 The workflow runs the real C filesystem containment tests and Swift fixtures

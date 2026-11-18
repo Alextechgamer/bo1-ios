@@ -20,8 +20,8 @@ is declared in `ios/SteamAuth/BO1SteamSignIn.h`:
 [BO1SteamSignIn presentFromViewController:presenter];
 ```
 
-Link Foundation, UIKit, SwiftUI, Security, CoreImage, Compression, `libz` and
-`liblzma`. CommonCrypto comes from the Apple SDK. There is no Swift Package
+Link the Foundation, UIKit, SwiftUI, Security and CoreImage frameworks, plus
+`libcompression`, `libz` and `liblzma`. CommonCrypto comes from the Apple SDK. There is no Swift Package
 Manager package, Steam Web API developer key, embedded Valve credential or
 third-party sign-in service. The final app embeds the Swift runtime as required
 by its Xcode toolchain.

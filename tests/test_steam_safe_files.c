@@ -90,7 +90,8 @@ static void contents_equal(int root, const char *path, const char *expected) {
 static void timed_out(int signal_number) {
   (void)signal_number;
   static const char message[] = "FAIL: filesystem helper blocked on nonregular input\n";
-  (void)write(STDERR_FILENO, message, sizeof(message) - 1);
+  ssize_t written = write(STDERR_FILENO, message, sizeof(message) - 1);
+  (void)written;
   _exit(2);
 }
 
