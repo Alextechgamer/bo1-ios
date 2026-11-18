@@ -102,5 +102,28 @@ jobs:
             third_party/ios/audio-build.json
             build-ios-native/*-platform.txt
             build-ios-native/*-linkage.txt
+      - name: Retain native objects, archives and link metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-Diagnostics-Link-Inputs
+          path: |
+            build-ios-native/**/*.o
+            build-ios-native/**/*.LinkFileList
+            build-ios-native/Release-iphoneos/*.a
+            build-ios-native/BO1IOSPlatform.xcodeproj/project.pbxproj
+            third_party/ios/SDL2-ios/lib/*.a
+            third_party/ios/SDL2-ios/include/
+            third_party/ios/ffmpeg-ios/lib/*.a
+            third_party/ios/ffmpeg-ios/include/
+            third_party/ios/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a
+            third_party/ios/MoltenVK/include/
+            third_party/ios/*.json
+            THIRD_PARTY_NOTICES.md
+            graphics/DXVK-LICENSE
+            vendor/sdl2/LICENSE.txt
+            vendor/ffmpeg/LICENSE.md
+            vendor/ffmpeg/COPYING.LGPLv2.1
+            third_party/ios/MoltenVK/LICENSE
+          if-no-files-found: error
 # This IPA runs platform diagnostics; it contains no game engine or game assets.
 # Game packaging follows a real linked engine/HUD/renderer adapter and ABI proof.

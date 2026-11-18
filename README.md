@@ -31,6 +31,8 @@ The original handoff is a design specification; its claims of completed engine/i
 
 The `Verify iOS platform source` workflow uploads `BO1-Port-Diagnostics-Unsigned` after the real app links and packaging checks succeed. Download the artifact from the [Actions page](https://github.com/Alextechgamer/bo1-ios/actions), unzip it, and sign/install the contained `.ipa` with your sideloading setup. The bundle has no distribution signature or provisioning profile.
 
+The IPA includes the pinned dependencies' notices and build provenance. The same run retains native objects, static libraries and link metadata in `BO1-Diagnostics-Link-Inputs`; these are build inputs, not a separately verified relinking tool.
+
 Use **Run checks** to collect memory and Vulkan evidence, **Control test** to test the HUD/controller, and **Test audio** for the generated test tone. **Share report** exports results only when tapped. Installation and execution on an actual iPhone are separate from CI's successful app build.
 
 This app uses its own entrypoint. It does not supply a fake `BO1IOSCreateHostServices` implementation or pretend to launch `Sys_Main`. The actual upstream engine enters its file-local `EngineMain`; that boundary still needs the compatible engine address model and synchronized lifecycle.

@@ -78,11 +78,16 @@ used by a build.
 
 ## Observed Apple CI result
 
-[Workflow run 44243665497](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665497)
+The latest verified
+[workflow run 44245260295](https://github.com/Alextechgamer/bo1-ios/actions/runs/44245260295)
 tested commit
-[`f226d374c853512878b89911edc653581a6c03f2`](https://github.com/Alextechgamer/bo1-ios/commit/f226d374c853512878b89911edc653581a6c03f2).
-Its `engine-abi-evidence` artifact contains `report.json`, compiler logs, assembly
-and Mach-O inspection reports. The actual compiler was **Apple Clang 17.0.0
+[`3f3fa3ed551c2740dbec480f68a09cb947062cae`](https://github.com/Alextechgamer/bo1-ios/commit/3f3fa3ed551c2740dbec480f68a09cb947062cae)
+on 2026-11-18. Its
+[`engine-abi-evidence` artifact](https://github.com/Alextechgamer/bo1-ios/actions/runs/44245260295/artifacts/14401246488)
+contains `report.json`, compiler logs, assembly and Mach-O inspection reports.
+The downloaded ZIP's verified SHA-256 is
+`5b02f734e11324a28233d4060a06f11ad0b72326160d45c26b853e51b9a7dc5f`.
+The actual compiler was **Apple Clang 17.0.0
 (`clang-1700.0.13.5`) from Xcode 16.4**, with **iPhoneOS 18.5 SDK** and target
 `arm64-apple-ios16.0`.
 
@@ -103,7 +108,9 @@ preserve the inspected engine's four-byte pointer layout with the tested flags.
 The ABI job must remain failed for that result; correcting an unrelated diagnostic
 build error does not make the engine compatible.
 
-The independent experiments produced these results:
+The frontend layout stage was the **only failed experiment**. All eight other
+stages passed, as did the separate 12-test inspector suite. The independent
+experiments produced these results:
 
 | Experiment | Observed result |
 | --- | --- |
@@ -112,7 +119,7 @@ The independent experiments produced these results:
 | Narrow stores, `-O0` and `-O2` | Both emitted `strb`/`strh` for the supplied isolated LLVM IR |
 | Ordinary iOS Mach-O link | Passed; PIE set, protected 4 GiB PAGEZERO, preferred text address `0x100000000` |
 | 2048 MiB zero-fill arena link | Passed; zero-fill data size 2,147,483,648 bytes; total mapped image span 2,147,532,800 bytes; file size 33,000 bytes |
-| iOS address diagnostic object | Failed because that SDK's `mach/mach_vm.h` explicitly reports unsupported |
+| iOS address diagnostic object | Passed with the public VM API and `-Wall -Wextra -Werror`; compiled only, not executed on a device |
 
 The narrow-store passes establish store widths for those IR functions only.
 They do not establish correct C++ pointer layouts, a four-byte function-argument
@@ -121,11 +128,16 @@ not launched; its small file size reflects zero-fill virtual storage rather than
 proof of an available device memory budget. The recorded preferred text address
 is a link-time value, before a device's ASLR slide.
 
-The diagnostic source has subsequently been corrected to use the SDK's public
-`vm_allocate`/`vm_deallocate` API and `vm_address_t`/`vm_size_t`, with explicit
-64-bit assertions. It no longer includes the unsupported header or redeclares
-unavailable APIs. This correction needs its own Apple CI result; the failed
-historical run is preserved above. No device runtime result exists yet.
+For comparison, the earlier
+[run 44243665497](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665497)
+at [`f226d374c853512878b89911edc653581a6c03f2`](https://github.com/Alextechgamer/bo1-ios/commit/f226d374c853512878b89911edc653581a6c03f2)
+had the same layout failures and an additional diagnostic-object failure because
+the iPhoneOS SDK explicitly rejects `mach/mach_vm.h`. The latest run verifies
+the correction to public `vm_allocate`/`vm_deallocate` and
+`vm_address_t`/`vm_size_t`, including explicit 64-bit assertions. No unavailable
+API is redeclared. The compiler diagnostic excerpts now appear directly in CI
+output, and the job correctly exits with failure for the incompatible engine
+layout. No device runtime result exists yet.
 
 ## Run the experiments
 

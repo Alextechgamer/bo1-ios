@@ -1,5 +1,30 @@
 # Validation — platform, native libraries, and diagnostics
 
+## Diagnostics app build — November 17, 2026 (Pacific time)
+
+Code revision: `3f3fa3ed551c2740dbec480f68a09cb947062cae`.
+[Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44245260249).
+
+| Job / artifact | Observed result |
+| --- | --- |
+| `host-tests` | PASS: 14 platform, 49 portable input and 60 actual-header native adapter checks with sanitizers, plus the real DXVK WSI harness |
+| `apple-sdk-compile` | PASS: UIKit host, touch/controller frontend, Metal bridge and patched DXVK platform sources compiled for device ARM64 |
+| `apple-native-link` | PASS: actual SDL/FFmpeg/native mixer and complete DXVK/MoltenVK link probes, plus the independent diagnostics app |
+| Diagnostics package | Unsigned IPA produced and downloaded; checksum, executable permission, bundle identifier, plist and Mach-O load commands verified |
+
+The executable is ARM64 iPhoneOS with a 16.0 minimum OS, built against SDK
+18.5. Its load commands preserve PIE and the protected first 4 GiB. `otool -L`
+lists Apple system libraries/frameworks only; SDL, FFmpeg and MoltenVK do not
+require separately installed dynamic libraries. The bundle ID is
+`com.alextechgamer.bo1ios.diagnostics` and its displayed name is
+`BO1 Port Diagnostics`.
+
+This is the first verified diagnostic app build. Subsequent packaging work
+adds dependency notices and retains link inputs separately. No iPhone
+installation or execution has been observed. The app contains no engine;
+its successful link does not resolve the failed engine ABI or missing Vulkan
+features. Its explicit PCM tone does not test xWMA decoding.
+
 ## Native library link milestone — November 17, 2026 (Pacific time)
 
 Code revision: `f226d374c853512878b89911edc653581a6c03f2`.
@@ -18,12 +43,13 @@ without allowing unresolved symbols. Earlier CI failures found and corrected
 `lipo` argument order, Xcode C-source definitions, and an Apple `size_t`
 overload ambiguity; the actual successful link covers those corrections.
 
-The separate [ABI experiment run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665497)
-failed its four-byte pointer-layout assertions under Apple Clang 17/Xcode
-16.4. The report also contains successful isolated narrow stores and ordinary
-PIE/PAGEZERO/image-arena links. Its address-diagnostic object originally used
-an unavailable SDK header; that source now uses the public VM API and awaits
-the next Apple build. Full results and distinctions are in
+The later [ABI experiment run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44245260295)
+at `3f3fa3ed551c2740dbec480f68a09cb947062cae` failed only its four-byte
+pointer-layout assertions under Apple Clang 17/Xcode 16.4. The other eight
+stages passed, including isolated narrow stores, ordinary PIE/PAGEZERO and
+image-arena links, and the corrected public-VM address diagnostic object.
+That object is compiled for iPhoneOS; it has not run on an iPhone. Full
+results and distinctions are in
 [ENGINE_ABI.md](ENGINE_ABI.md).
 
 ## Native input and diagnostics source checks
@@ -43,9 +69,8 @@ The diagnostics frontend consumes input only when no engine consumer is
 linked. These tests do not run UIKit or T5 gameplay on a phone.
 
 The separately named `BO1 Port Diagnostics` target and packaging workflow
-are supplied for actual device evidence. Their Apple build, artifact and
-device-execution results must be recorded separately; source review and
-portable tests alone do not establish an installable app.
+are supplied for actual device evidence. The successful Apple app build and
+artifact inspection are recorded above; device execution remains separate.
 
 ## Initial platform verification — November 17, 2026 (Pacific time)
 
@@ -104,7 +129,7 @@ exercise a real Vulkan driver or a UIKit view.
 - Steam sign-in, ownership/depot selection or downloads through this project.
 - A rendered game frame, map loading, audio, touch/controller gameplay,
   aim assist, memory behavior, safe backgrounding or performance on an iPhone.
-- A packaged diagnostics IPA, successful signing/installation, or device execution.
+- Successful signing/installation or execution of the diagnostics IPA on an iPhone.
 
 The on-push verification workflow is active in `Alextechgamer/bo1-ios`.
 Each observed run above verifies the exact code revision recorded with it.

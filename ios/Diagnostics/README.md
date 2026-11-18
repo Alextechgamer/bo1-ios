@@ -64,6 +64,16 @@ for signing/sideloading. Do not force-load `bo1_ios_host` with `-all_load`
 or `-ObjC`: this app uses its C bridge and has its own app delegate. There
 is deliberately no substitute for the unfinished engine host factory.
 
+Packaging also bundles the actual pinned SDL2, FFmpeg, MoltenVK, and DXVK
+notice files under `ThirdPartyNotices/` inside the app, together with source
+provenance, build-recipe references, and the dependency receipts. Missing,
+empty, or altered required notices make packaging fail before replacing an
+existing IPA. The normal workflow command needs no new options; custom
+dependency locations can use `--source-root` and `--deps-root`. See
+[`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) for the source pins
+and the scope of the upstream BO1 audio notices. Bundled notices do not
+establish a project-wide or BO1 license grant.
+
 SDK compilation, real-device installation, and on-device UI/audio checks
 are separate verification steps. This source alone is not evidence of a
 successful phone run.

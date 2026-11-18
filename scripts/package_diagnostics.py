@@ -6,10 +6,111 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import subprocess
 import tempfile
 import zipfile
 
 from probe_engine_abi import inspect_macho
+
+ROOT = Path(__file__).resolve().parents[1]
+DXVK_REVISION = "2b1a284f8453baa2bd193709b67e5183074c74ba"
+ENGINE_REVISION = "3401a66355c07d6c590049c2f42b7635c9bf00ac"
+# Digests of the complete, unchanged notice files in the pinned sources/package.
+LICENSES = (
+    ("sdl2", "LICENSE.txt", "SDL2-LICENSE.txt",
+     "97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127"),
+    ("ffmpeg", "COPYING.LGPLv2.1", "FFmpeg-COPYING.LGPLv2.1",
+     "b634ab5640e258563c536e658cad87080553df6f34f62269a21d554844e58bfe"),
+    ("ffmpeg", "LICENSE.md", "FFmpeg-LICENSE.md",
+     "cb48bf09a11f5fb576cddb0431c8f5ed0a60157a9ec942adffc13907cbe083f2"),
+    ("dxvk", "LICENSE", "DXVK-LICENSE.txt",
+     "a5cb1a6ded7d2d7e92d550ba28edd21be2d1d4044662b399887351023e30ce64"),
+    ("moltenvk", "LICENSE", "MoltenVK-LICENSE.txt",
+     "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"),
+)
+
+
+def required_file(path, expected_sha256=None):
+    if not path.is_file() or path.is_symlink():
+        raise ValueError(f"Required notice/provenance file is missing or not regular: {path}")
+    data = path.read_bytes()
+    if not data.strip():
+        raise ValueError(f"Required notice/provenance file is empty: {path}")
+    if expected_sha256 and hashlib.sha256(data).hexdigest() != expected_sha256:
+        raise ValueError(f"Notice differs from its pinned upstream file: {path}")
+    return data
+
+
+def revision(source):
+    return subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"],
+                                   text=True, stderr=subprocess.PIPE).strip()
+
+
+def bundled_notices(source_root, deps_root):
+    """Use real fetched files; never synthesize a substitute license notice."""
+    lock_bytes = required_file(ROOT / "scripts/ios_dependencies.json")
+    lock = json.loads(lock_bytes)
+    for name, expected in (("sdl2", lock["sdl2"]["revision"]),
+                           ("ffmpeg", lock["ffmpeg"]["revision"]),
+                           ("dxvk", DXVK_REVISION), ("bo1-engine", ENGINE_REVISION)):
+        actual = revision(source_root / name)
+        if actual != expected:
+            raise ValueError(f"Provenance pin mismatch for {name}: expected {expected}, got {actual}")
+
+    files = {}
+    for name, relative, output, digest in LICENSES:
+        directory = deps_root / "MoltenVK" if name == "moltenvk" else source_root / name
+        files[output] = required_file(directory / relative, digest)
+    files["THIRD_PARTY_NOTICES.md"] = required_file(ROOT / "THIRD_PARTY_NOTICES.md")
+    files["ios_dependencies.json"] = lock_bytes
+    files["audio-build.json"] = required_file(deps_root / "audio-build.json")
+    files["MoltenVK-build.json"] = required_file(deps_root / "MoltenVK/bo1-source.json")
+    # Preserve the upstream's own scope statement; it is not a license grant
+    # for the game engine or the separate native mixer compiled by diagnostics.
+    files["BO1-upstream-NOTICE.md"] = required_file(source_root / "bo1-engine/NOTICE.md")
+    files["BO1-upstream-THIRD_PARTY_NOTICES.md"] = required_file(source_root / "bo1-engine/THIRD_PARTY_NOTICES.md")
+    audio = json.loads(files["audio-build.json"])
+    moltenvk = json.loads(files["MoltenVK-build.json"])
+    if audio.get("target") != "arm64-apple-ios":
+        raise ValueError("Audio build receipt is not for arm64-apple-ios")
+    for name in ("sdl2", "ffmpeg"):
+        if audio.get("sources", {}).get(name, {}).get("revision") != lock[name]["revision"]:
+            raise ValueError(f"Audio build receipt has the wrong {name} source revision")
+    if (moltenvk.get("version") != lock["moltenvk"]["version"] or
+            moltenvk.get("archive_sha256") != lock["moltenvk"]["sha256"]):
+        raise ValueError("MoltenVK receipt does not match the pinned release archive")
+
+    recipe_paths = ("scripts/build_ios_deps.py", "scripts/ios_dependencies.json",
+                    "cmake/ios_audio.cmake", "cmake/dxvk-static.cmake", "cmake/dxvk-sources.cmake",
+                    "cmake/ios_diagnostics.cmake", "patches/dxvk/apply.py", "scripts/package_diagnostics.py")
+    project_revision = revision(ROOT)
+    repository = f"https://github.com/Alextechgamer/bo1-ios/blob/{project_revision}/"
+    provenance = {
+        "scope": "BO1 Port Diagnostics; no gameplay engine or commercial game assets",
+        "packaging_recipe_revision": project_revision,
+        "sources": {
+            "SDL2": lock["sdl2"], "FFmpeg": lock["ffmpeg"], "MoltenVK": lock["moltenvk"],
+            "DXVK": {"url": "https://github.com/doitsujin/dxvk.git", "revision": DXVK_REVISION,
+                     "alterations": "BO1 iOS Metal/static-archive patch series; not an upstream DXVK release"},
+            "native_audio": {
+                "url": "https://github.com/Zephelinn/BO1-Ascension-ARM64.git", "revision": ENGINE_REVISION,
+                "files": ["src/native/native_audio.cpp", "src/native/native_audio.h"],
+                "license_grant_inferred": False,
+            },
+        },
+        "build_recipes": [{"path": path, "url": repository + path,
+                           "sha256": hashlib.sha256(required_file(ROOT / path)).hexdigest()}
+                          for path in recipe_paths],
+        "dxvk_patches": [{"path": str(path.relative_to(ROOT)),
+                          "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                         for path in sorted((ROOT / "patches/dxvk").glob("[0-9][0-9][0-9][0-9]-*.patch"))],
+        "notices": {name: {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+                    for name, data in sorted(files.items())},
+        "receipts": ["audio-build.json", "MoltenVK-build.json"],
+        "license_scope": "Preserved dependency notices; no project-wide or BO1 license grant is inferred.",
+    }
+    files["provenance.json"] = (json.dumps(provenance, indent=2) + "\n").encode()
+    return files, provenance
 
 
 def main():
@@ -17,6 +118,10 @@ def main():
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path,
                         default=Path("dist/BO1-Port-Diagnostics-Unsigned.ipa"))
+    parser.add_argument("--source-root", type=Path, default=ROOT / "vendor",
+                        help="Pinned SDL2, FFmpeg, DXVK and bo1-engine checkouts (default: vendor)")
+    parser.add_argument("--deps-root", type=Path, default=ROOT / "third_party/ios",
+                        help="Actual iOS dependency install and receipts (default: third_party/ios)")
     args = parser.parse_args()
     app = args.app.resolve()
     if not app.is_dir() or app.suffix != ".app":
@@ -40,6 +145,12 @@ def main():
         parser.error("Unexpected symlink in the standalone static diagnostics app")
     if (app / "embedded.mobileprovision").exists():
         parser.error("This packaging target expects a bundle without a provisioning profile")
+    if (app / "ThirdPartyNotices").exists():
+        parser.error("The built app already has ThirdPartyNotices; refusing to add a second or stale set")
+    try:
+        notices, provenance = bundled_notices(args.source_root.resolve(), args.deps_root.resolve())
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+        parser.error(f"Dependency notices/provenance validation failed: {error}")
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(prefix="bo1-diagnostics-", suffix=".ipa",
@@ -50,6 +161,11 @@ def main():
             for path in paths:
                 if path.is_file():
                     archive.write(path, Path("Payload") / app.name / path.relative_to(app))
+            for name, data in sorted(notices.items()):
+                entry = zipfile.ZipInfo(str(Path("Payload") / app.name / "ThirdPartyNotices" / name))
+                entry.create_system = 3
+                entry.external_attr = 0o100644 << 16
+                archive.writestr(entry, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
         temporary_path.replace(output)
     finally:
         temporary_path.unlink(missing_ok=True)
@@ -61,6 +177,10 @@ def main():
         "target": "arm64-apple-ios", "code_signing": "no-distribution-signature-or-provisioning-profile",
         "game_engine_included": False, "device_execution_verified": False,
         "executable_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+        "bundled_notices_directory": "ThirdPartyNotices",
+        "bundled_notices": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(notices.items())},
+        "dependency_sources": provenance["sources"],
+        "packaging_recipe_revision": provenance["packaging_recipe_revision"],
     }
     output.with_suffix(".json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(json.dumps(manifest, indent=2))
