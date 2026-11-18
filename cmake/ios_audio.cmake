@@ -4,11 +4,11 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
   message(FATAL_ERROR "The iOS audio target requires the iphoneos toolchain")
 endif()
 set(BO1_IOS_DEPS_DIR "${PROJECT_SOURCE_DIR}/third_party/ios" CACHE PATH "Pinned iOS dependency installation")
-set(BO1_ENGINE_SOURCE_DIR "" CACHE PATH "SevyW/bo1-zombies-android at the documented engine revision")
+set(BO1_ENGINE_SOURCE_DIR "" CACHE PATH "Pinned BO1 Ascension source checkout")
 set(_bo1_audio_source "${BO1_ENGINE_SOURCE_DIR}/src/native/native_audio.cpp")
 set(_bo1_audio_header "${BO1_ENGINE_SOURCE_DIR}/src/native/native_audio.h")
 if(NOT EXISTS "${_bo1_audio_source}" OR NOT EXISTS "${_bo1_audio_header}")
-  message(FATAL_ERROR "Set BO1_ENGINE_SOURCE_DIR to SevyW/bo1-zombies-android e121bab3412988b29534fad26c257adc24329818")
+  message(FATAL_ERROR "Set BO1_ENGINE_SOURCE_DIR to BO1-Ascension-ARM64 3401a66355c07d6c590049c2f42b7635c9bf00ac")
 endif()
 file(SHA256 "${_bo1_audio_source}" _bo1_audio_sha)
 file(SHA256 "${_bo1_audio_header}" _bo1_audio_header_sha)
@@ -45,7 +45,8 @@ target_compile_definitions(bo1_native_audio PRIVATE BO1_FFMPEG=1 SDL_MAIN_HANDLE
 target_link_libraries(bo1_native_audio PUBLIC bo1_dep_SDL2 bo1_dep_avcodec)
 
 # A real device executable link, with actual libraries and no undefined-symbol
-# allowances. It is not packaged as an app and is not run on the build host.
+# allowances. Xcode gives it an app wrapper; it has no UIKit entrypoint and is
+# neither distributed as an IPA nor run on the build host.
 add_executable(bo1_audio_link_probe "${PROJECT_SOURCE_DIR}/tests/ios_audio_link_probe.cpp")
 target_compile_definitions(bo1_audio_link_probe PRIVATE SDL_MAIN_HANDLED=1)
 target_link_libraries(bo1_audio_link_probe PRIVATE bo1_native_audio bo1_dep_avformat bo1_dep_swresample)

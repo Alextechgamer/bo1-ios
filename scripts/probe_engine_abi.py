@@ -119,6 +119,21 @@ def inspect_narrow_stores(assembly: str) -> dict:
     return evidence
 
 
+def diagnostic_excerpt(output: str) -> str:
+    """Bound CI console output; complete diagnostics remain in the stage log."""
+    lines = output.strip().splitlines()
+    excerpt = "\n".join(lines[:48])
+    truncated = len(lines) > 48 or len(excerpt) > 8000
+    return excerpt[:8000] + ("\n[excerpt truncated; see the full log]" if truncated else "")
+
+
+class ProbeCommandError(RuntimeError):
+    def __init__(self, reason: str, logfile: Path, diagnostics: str = ""):
+        super().__init__(f"{reason}; see {logfile}")
+        self.logfile = logfile
+        self.diagnostics = diagnostic_excerpt(diagnostics)
+
+
 class Runner:
     def __init__(self, output: Path):
         self.output = output
@@ -131,10 +146,10 @@ class Runner:
                                     stderr=subprocess.STDOUT, timeout=120, check=False)
         except (OSError, subprocess.TimeoutExpired) as error:
             logfile.write_text(shlex.join(arguments) + "\n" + str(error) + "\n")
-            raise RuntimeError(f"{name}: {error}; see {logfile}") from error
+            raise ProbeCommandError(f"{name}: {error}", logfile) from error
         logfile.write_text(shlex.join(arguments) + "\n\n" + result.stdout)
         if result.returncode:
-            raise RuntimeError(f"{name}: exit {result.returncode}; see {logfile}")
+            raise ProbeCommandError(f"{name}: exit {result.returncode}", logfile, result.stdout)
         return result.stdout
 
     def stage(self, name: str, operation) -> None:
@@ -143,8 +158,16 @@ class Runner:
             result = {"name": name, "status": "pass", "evidence": evidence}
         except (RuntimeError, ValueError, OSError) as error:
             result = {"name": name, "status": "fail", "reason": str(error)}
+            if isinstance(error, ProbeCommandError):
+                result["log"] = str(error.logfile)
+                if error.diagnostics:
+                    result["diagnostic_excerpt"] = error.diagnostics
         self.results.append(result)
         print(f"{name}: {result['status']}", flush=True)
+        if result["status"] == "fail":
+            print(f"  {result['reason']}", flush=True)
+            if result.get("diagnostic_excerpt"):
+                print(result["diagnostic_excerpt"], flush=True)
 
 
 def main() -> int:

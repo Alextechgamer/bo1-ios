@@ -11,10 +11,13 @@ static_assert(sizeof(std::uintptr_t) == 8, "This diagnostic requires a 64-bit pr
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
-#include <mach/mach_vm.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <TargetConditionals.h>
+// The iPhoneOS SDK exports vm_allocate/vm_deallocate. mach/mach_vm.h is
+// explicitly unsupported there; do not redeclare unavailable private APIs.
+static_assert(sizeof(vm_address_t) == 8, "The public VM API must preserve arm64 addresses.");
+static_assert(sizeof(vm_size_t) == 8, "The public VM API must preserve arm64 sizes.");
 #endif
 
 namespace {
@@ -89,18 +92,18 @@ extern "C" int BO1ProbeAddressModel(FILE* output) {
 
     // VM_FLAGS_FIXED without VM_FLAGS_OVERWRITE must fail if a range is
     // unavailable. This is a one-page observation, not an allocator strategy.
-    mach_vm_address_t low = 0x40000000ull;
-    const mach_vm_size_t bytes = vm_page_size;
-    const kern_return_t lowResult = mach_vm_allocate(mach_task_self(), &low, bytes, VM_FLAGS_FIXED);
+    vm_address_t low = 0x40000000ull;
+    const vm_size_t bytes = vm_page_size;
+    const kern_return_t lowResult = vm_allocate(mach_task_self(), &low, bytes, VM_FLAGS_FIXED);
     std::fprintf(output, "low_page_probe.status=%d address=0x%" PRIx64 "\n",
                  lowResult, static_cast<std::uint64_t>(low));
-    if (lowResult == KERN_SUCCESS) mach_vm_deallocate(mach_task_self(), low, bytes);
+    if (lowResult == KERN_SUCCESS) vm_deallocate(mach_task_self(), low, bytes);
 
-    mach_vm_address_t ordinary = 0;
-    const kern_return_t highResult = mach_vm_allocate(mach_task_self(), &ordinary, bytes, VM_FLAGS_ANYWHERE);
+    vm_address_t ordinary = 0;
+    const kern_return_t highResult = vm_allocate(mach_task_self(), &ordinary, bytes, VM_FLAGS_ANYWHERE);
     std::fprintf(output, "ordinary_page_probe.status=%d address=0x%" PRIx64 "\n",
                  highResult, static_cast<std::uint64_t>(ordinary));
-    if (highResult == KERN_SUCCESS) mach_vm_deallocate(mach_task_self(), ordinary, bytes);
+    if (highResult == KERN_SUCCESS) vm_deallocate(mach_task_self(), ordinary, bytes);
 #endif
     std::fprintf(output, "engine_compatible=UNPROVEN\n");
     return status;

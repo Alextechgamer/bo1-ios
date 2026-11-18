@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Guard the inspection logic against false-positive ABI/codegen results."""
 import importlib.util
+from contextlib import redirect_stdout
+import io
 from pathlib import Path
 import struct
+import subprocess
+import tempfile
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "probe_engine_abi.py"
 SPEC = importlib.util.spec_from_file_location("probe_engine_abi", SCRIPT)
@@ -43,6 +48,27 @@ def image(pagezero_size=1 << 32, flags=0x200000, platform=2):
 
 
 class InspectorTests(unittest.TestCase):
+    def test_failed_stage_prints_diagnostics_and_remains_failed(self):
+        diagnostics = "layout.cpp: error: static assertion failed\nnote: 8 == 4\n"
+        with tempfile.TemporaryDirectory() as directory:
+            runner = PROBE.Runner(Path(directory))
+            output = io.StringIO()
+            failure = subprocess.CompletedProcess(["clang"], 1, diagnostics)
+            with patch.object(PROBE.subprocess, "run", return_value=failure), redirect_stdout(output):
+                runner.stage("layout", lambda: runner.command("frontend", ["clang", "layout.cpp"]))
+                runner.stage("independent", lambda: {"completed": True})
+            self.assertEqual(runner.results[0]["status"], "fail")
+            self.assertEqual(runner.results[1]["status"], "pass")
+            self.assertIn("static assertion failed", output.getvalue())
+            self.assertIn("8 == 4", runner.results[0]["diagnostic_excerpt"])
+            self.assertIn("frontend.log", output.getvalue())
+            self.assertIn(diagnostics, (Path(directory) / "frontend.log").read_text())
+
+    def test_diagnostic_excerpt_is_bounded(self):
+        excerpt = PROBE.diagnostic_excerpt("error: " + "x" * 9000)
+        self.assertLess(len(excerpt), 8100)
+        self.assertIn("excerpt truncated", excerpt)
+
     def test_correct_narrow_stores(self):
         self.assertEqual(PROBE.inspect_narrow_stores(assembly())["bo1_probe_store8"]["store_opcode"], "strb")
 

@@ -42,10 +42,11 @@ and use `lipo` to verify ARM64 archives.
 
 ## Actual engine audio compilation
 
-`BO1_BUILD_IOS_AUDIO=ON` compiles the unchanged native mixer from
-`SevyW/bo1-zombies-android` revision
-`e121bab3412988b29534fad26c257adc24329818`, selected with
-`BO1_ENGINE_SOURCE_DIR`. The source/header hashes are checked before building.
+`BO1_BUILD_IOS_AUDIO=ON` compiles the unchanged native mixer selected with
+`BO1_ENGINE_SOURCE_DIR`. CI uses `Zephelinn/BO1-Ascension-ARM64` revision
+`3401a66355c07d6c590049c2f42b7635c9bf00ac`. Its audio source and header are byte
+identical to the inspected `SevyW/bo1-zombies-android` revision
+`e121bab3412988b29534fad26c257adc24329818`; both hashes are checked before building.
 This mixer uses normal native pointers and is explicitly excluded from
 upstream's pointer32 rewrite, so it can be verified independently of the game.
 

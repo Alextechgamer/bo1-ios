@@ -1,114 +1,75 @@
-# BO1 iOS — initial platform project
+# BO1 iOS
 
-Target: `arm64-apple-ios`, iOS 16 or later. Intended game scope is Zombies,
-offline Combat Training, and eventually campaign.
+Native ARM64 iOS port work for Black Ops, targeting iOS 16 or later. Intended game scope is Zombies, offline Combat Training, and eventually campaign.
 
-This initial project implements the UIKit launch host and a Metal WSI provider
-for the real DXVK v2.6.1 interface. **It is not a runnable Black Ops port and
-does not contain an IPA.** The supplied handoff is treated as a specification,
-not evidence that its engine, input bridge, downloader, or build already exists.
+**The game is not playable yet.** This repository contains real platform, input, graphics and audio integration work, plus a separately named **BO1 Port Diagnostics** app for collecting iPhone evidence. A diagnostics IPA is not a Black Ops game build. No commercial game files or Steam credentials are bundled.
 
-## Implemented here
+## What is implemented
 
-| Component | Behavior and current limit |
+| Component | Implementation and boundary |
 | --- | --- |
-| UIKit app host | App delegate, CAMetalLayer view, physical pixel sizing, landscape layout, Files instructions and startup gate. ARM64 compilation with the iPhone SDK passed; device execution remains unverified. |
-| Game thread | One checked launch attempt on a detached 64 MiB pthread; explicit initialization, exception and return handling. This does not solve the engine's low-address pointer ABI. |
-| Input/HUD integration | A real HUD is mounted through the required native adapter and input is submitted each display tick. No native BO1 HUD implementation is supplied yet. |
-| Lifecycle | Resign-active requests pause, resets input and calls an explicit renderer drain contract; foreground prepares resources before releasing pause. The actual engine/DXVK submission synchronization remains to be implemented. |
-| Download integration | A real BO1 downloader can supply a view controller through the adapter. Files import is the immediate UI path. No BO2 downloader is silently repurposed. |
-| Metal/Vulkan bridge | Retained CAMetalLayer, stable opaque HWND token, atomic drawable dimensions, static MoltenVK surface creation and explicit errors. |
-| DXVK WSI | Complete v2.6.1 driver, factory registration, native build selection, static Vulkan loader patch and source-level behavioral tests against upstream. Not the whole DXVK renderer. |
-| Build checks | Portable tests and iOS static-library compilation both passed in GitHub Actions. See the linked run and exact tested revision in `docs/VALIDATION.md`. |
+| UIKit game host | CAMetalLayer, physical pixel sizing, adaptive display link up to 120 Hz, Files startup gate, checked 64 MiB pthread launch and explicit lifecycle contracts. The real engine adapter remains required. |
+| Touch and controllers | New draggable HUD with saved positions, native GameController input, thread-safe held/edge state and consume-once look deltas. Uses the actual BO1 gamepad and native input interfaces, without BO2 guest-memory offsets. |
+| Native input adapter | Exact-header implementation of GPad_Backend, plus a checked IN_Frame hook. Native engine queue symbols are deliberately unresolved until the real engine is linked. |
+| DXVK | Complete pinned v2.6.1 D3D9 static build, 60 generated shaders, Metal WSI, Apple portability fixes, isolated factory exports and a whole-archive link probe against static MoltenVK. Runtime feature compatibility is blocked below. |
+| Audio | Pinned CoreAudio SDL2 and minimal FFmpeg builds; compilation of the actual native BO1 software mixer and a real device link probe. |
+| Diagnostics app | Separate entrypoint for checking real Vulkan capabilities and Metal surface creation, memory addresses, touch/controller input and an explicit PCM audio test. It invokes no engine and needs no game files. |
+| Engine ABI experiments | Actual Apple compiler layout/codegen checks, ordinary iOS Mach-O/PIE/PAGEZERO checks, image-arena experiments and a device address diagnostic. |
+| CI | Host behavior tests, Apple SDK compilation, complete native-library linkage, diagnostics packaging, and a separate strict engine-ABI experiment workflow. |
 
-The mandatory `BO1IOSCreateHostServices` factory has no default implementation.
-An app link therefore cannot succeed until the actual engine, native input/HUD,
-graphics configuration and suspend/resume adapter are supplied. This is intentional:
-a platform-only launcher must not be presented as working gameplay.
+Exact tested revisions, results and limits are in [Validation](docs/VALIDATION.md). Requested 120 Hz callbacks do not establish game frame rate or device performance.
 
-## Files
+## Confirmed blockers
 
-| Path | Purpose |
-| --- | --- |
-| `ios/AppDelegate.mm`, `ios/GameViewController.mm`, `ios/main.mm` | UIKit entry, display/input loop, launch and lifecycle control |
-| `ios/include/BO1IOSHostServices.h` | Explicit adapter contract for the real engine/HUD/downloader |
-| `ios/ios_platform_bridge.mm` | Retained layer, published state, static MoltenVK surface creation |
-| `ios/bo1_asset_gate.cpp` | Readable nonempty startup archive presence check |
-| `graphics/dxvk/src/wsi/metal/wsi_platform_ios.cpp` | New Metal WSI provider overlay |
-| `patches/dxvk/` | Pinned, checked, repeatable upstream integration patch |
-| `tests/`, `graphics/tests/` | Executable host verification |
-| `cmake/ios.cmake`, `CMakeLists.txt` | iOS 16 ARM64 static-platform compile targets |
-| `.github/workflows/verify-platform.yml` | On-push/PR platform verification, not IPA publication |
-| `docs/ENGINE_PORT_GATES.md` | Verified upstream assumptions and remaining work |
-| `docs/VALIDATION.md` | Results and practical limits of verification |
+**The engine pointer model needs a real port.** The Android native build stores four-byte absolute pointers to objects below 4 GiB. Apple's ordinary ARM64 loader protects that address range. The tested Xcode 16.4 compiler also gives the engine's `__ptr32` declarations eight-byte storage, failing the necessary layout assertions. A larger pthread stack does not change either condition. See [the ABI evidence and replacement-design requirements](docs/ENGINE_ABI.md).
 
-No commercial game assets, proprietary executables, Steam credentials or
-unbuilt dependency binaries are included.
+**Stock DXVK and MoltenVK do not form a working D3D9 runtime here.** The pinned DXVK requires `robustBufferAccess2`, `nullDescriptor`, `geometryShader` and `shaderCullDistance`; pinned MoltenVK 1.4.2 does not expose them. The build and capability query preserve those requirements. BO1's existing GLES3 shim is a concrete alternative to evaluate, with documented limitations. See [renderer options](graphics/RENDERER_OPTIONS.md).
 
-## Run the checks
+The original handoff is a design specification; its claims of completed engine/input/downloader/IPA integration were not treated as verified source.
 
-With Python 3, Git and a C++20 compiler on Linux or macOS:
+## Diagnostics on an iPhone
+
+The `Verify iOS platform source` workflow uploads `BO1-Port-Diagnostics-Unsigned` after the real app links and packaging checks succeed. Download the artifact from the [Actions page](https://github.com/Alextechgamer/bo1-ios/actions), unzip it, and sign/install the contained `.ipa` with your sideloading setup. The bundle has no distribution signature or provisioning profile.
+
+Use **Run checks** to collect memory and Vulkan evidence, **Control test** to test the HUD/controller, and **Test audio** for the generated test tone. **Share report** exports results only when tapped. Installation and execution on an actual iPhone are separate from CI's successful app build.
+
+This app uses its own entrypoint. It does not supply a fake `BO1IOSCreateHostServices` implementation or pretend to launch `Sys_Main`. The actual upstream engine enters its file-local `EngineMain`; that boundary still needs the compatible engine address model and synchronized lifecycle.
+
+## Build and verify
+
+The GitHub workflows run the Apple SDK builds without requiring a local Mac. For portable tests with Python 3 and a C++20 compiler:
 
 ```sh
 python3 scripts/run_host_tests.py
-git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk
-git -C vendor/dxvk submodule update --init --depth 1 include/vulkan
-python3 graphics/tests/run_wsi_tests.py vendor/dxvk
+python3 engine/probes/test_probe_engine_abi.py
+python3 scripts/probe_engine_abi.py --output-dir build/engine-abi
 ```
 
-The WSI test applies the patch in a temporary worktree, compiles the real
-upstream interface/dispatcher/loader, and removes that worktree afterward.
-It uses deterministic host/Vulkan fakes; it does not render a frame.
+The last command explicitly skips Apple-only stages on Linux. To test the real native input header as well, pass `--engine-source /path/to/bo1-ascension` to `scripts/run_host_tests.py`.
 
-To compile the platform archives against a real iPhone SDK on a Mac:
+For the complete build on a Mac with Xcode, CMake, Ninja and host glslang:
 
 ```sh
+git init vendor/bo1-engine
+git -C vendor/bo1-engine remote add origin https://github.com/Zephelinn/BO1-Ascension-ARM64.git
+git -C vendor/bo1-engine fetch --depth 1 origin 3401a66355c07d6c590049c2f42b7635c9bf00ac
+git -C vendor/bo1-engine checkout --detach FETCH_HEAD
+git clone --branch v2.6.1 --depth 1 --recurse-submodules --shallow-submodules https://github.com/doitsujin/dxvk.git vendor/dxvk
 python3 patches/dxvk/apply.py vendor/dxvk
-cmake -S . -B build-ios -G Xcode \
-  -DCMAKE_TOOLCHAIN_FILE=cmake/ios.cmake \
-  -DBO1_BUILD_IOS_PLATFORM=ON -DBUILD_TESTING=OFF \
-  -DBO1_DXVK_SOURCE_DIR="$PWD/vendor/dxvk"
-cmake --build build-ios --config Release -- CODE_SIGNING_ALLOWED=NO
+bash scripts/build_ios_deps.sh
+cmake -S . -B build-ios-native -G Xcode -DCMAKE_TOOLCHAIN_FILE=cmake/ios.cmake -DBUILD_TESTING=OFF -DBO1_BUILD_IOS_PLATFORM=ON -DBO1_BUILD_IOS_DXVK=ON -DBO1_BUILD_IOS_AUDIO=ON -DBO1_BUILD_DIAGNOSTICS=ON -DBO1_ENGINE_SOURCE_DIR="$PWD/vendor/bo1-engine" -DBO1_DXVK_SOURCE_DIR="$PWD/vendor/dxvk"
+cmake --build build-ios-native --config Release -- CODE_SIGNING_ALLOWED=NO
+python3 scripts/package_diagnostics.py --app build-ios-native/Release-iphoneos/BO1PortDiagnostics.app
 ```
 
-This compiles `bo1_ios_host`, `bo1_ios_entrypoint`, and `bo1_dxvk_platform`.
-It does not link a game or prove missing engine symbols exist. The eventual
-game target must use the complete DXVK library, not both its platform objects
-and duplicate copies from this verification archive.
+The separate [engine-ABI workflow](.github/workflows/probe-engine-abi.yml) retains failures and uploads its evidence even when the compiler is incompatible. Its red result must not be hidden by removing the layout assertions. Every ABI report states `engine_ready=false` until a replacement engine implementation is actually validated.
 
-For CMake-based portable testing:
+## Integration documents
 
-```sh
-cmake -S . -B build-host
-cmake --build build-host
-ctest --test-dir build-host --output-on-failure
-```
+- [Engine port gates](docs/ENGINE_PORT_GATES.md): entrypoint, rendering/audio lifecycle, asset delivery and gameplay work still required.
+- [Native input](docs/INPUT.md): frame ownership, bindings, menus, suspension, patch application and engine source selection.
+- [Dependencies](docs/DEPENDENCIES.md): exact pins, enabled audio formats, checksums, compiler receipts and static library builds.
+- [Graphics](graphics/README.md): full D3D9 build, WSI, static exports and the real driver capability query.
+- [Source provenance](THIRD_PARTY_NOTICES.md): dependency and source notices.
 
-## Adapter responsibilities
-
-Implement `BO1IOSCreateHostServices` using the actual engine port, then link it
-with `ios/main.mm` and the host. The adapter configures `BO1_IOS_BASEPATH` to
-the supplied `Documents/game` directory before initialization. It selects the
-Metal WSI and supplies `IOS_GetMetalWindowHandle()` to D3D9. It links static
-MoltenVK and the complete iOS DXVK renderer, enables the advertised surface
-extensions, and verifies actual required Vulkan device features.
-
-The adapter must supply real native touch/controller input with held-state and
-one-time look-delta semantics. The host owns the display link; do not create a
-second one in the HUD. Requested 120 Hz input/display callbacks are not a claim
-that the game renders at 120 FPS.
-
-Suspension is a renderer synchronization operation. Stop new work, serialize
-and drain submission workers, pause audio, and leave the gate closed even if
-draining reports an error. Never synchronously dispatch to the UIKit thread
-while it is waiting for this acknowledgment. Do not simply call
-`vkDeviceWaitIdle` from the app delegate while other threads submit commands.
-
-The optional downloader must write to the same game directory, stop all writes
-before completion, and provide its own Cancel control. Its sheet cannot be
-gesture-dismissed. A reported error/cancellation never auto-launches the game.
-The archive gate checks only a readable, nonempty `zone/Common/common.ff` or
-`common_zombie.ff`; it cannot establish that all selected-mode files are valid.
-
-See [the engine port gates](docs/ENGINE_PORT_GATES.md) before connecting a
-native engine. The largest blocker is its pointer/address model, not UIKit.
+Steam sign-in, entitlement/depot selection and downloads have not been wired into this project. The eventual game host's Files gate checks only the presence of a readable nonempty startup archive; it is not a complete installation check. The upstream feature table lists campaign as unavailable, so campaign remains separate engine work after the iOS foundation is solved.

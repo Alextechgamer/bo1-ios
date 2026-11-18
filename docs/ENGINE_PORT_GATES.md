@@ -27,6 +27,13 @@ function pointers, variadic boundaries, allocation and thread-stack addresses.
 Dropping pointer annotations without fixing the underlying layout assumptions
 would change asset/structure representations.
 
+This is now a confirmed incompatibility with the stock setup. The tested
+AppleClang 17/Xcode 16.4 layout probe gives the required four-byte pointer
+objects eight-byte storage. Apple's pinned ARM64 loader requires a protected
+first 4 GiB. The normal iOS link and 2 GiB zero-fill image-arena experiments
+preserve that protection and pass, but do not implement the engine's pointer
+semantics. See [the actual compiler evidence and replacement ABI work](ENGINE_ABI.md).
+
 The requested 64 MiB pthread in this project controls stack capacity only.
 Upstream uses `pthread_attr_setstack` with a low-heap allocation. Its 16 MiB
 stack is deliberately located below 4 GiB. A larger ordinary pthread stack is
@@ -55,19 +62,22 @@ Source: [actual entry and frame loop](https://github.com/SevyW/bo1-zombies-andro
 
 The supplied Metal provider replaces the actual DXVK v2.6.1 SDL2 WSI path.
 It implements the full `WsiDriver` contract, not only two free functions.
-Its factory and loader patches are included. Full iOS DXVK compilation and
-linking still need the remaining Apple platform changes and shader generation.
+The full static D3D9 CMake target now compiles the renderer, real EDID parser
+and 60 shaders. CI force-loads the archive in a device link probe with real
+static MoltenVK. [Validation](VALIDATION.md) records the exact observed build.
 
 The BO1 native renderer also dynamically loads `libdxvk_d3d9.so`, selects SDL2,
 and passes an SDL window handle. Replace that engine boundary with the intended
 static D3D9 entry, Metal selection and `IOS_GetMetalWindowHandle()` token.
 Avoid symbol collisions with the engine's separate D3D9 compatibility shim.
 
-Build and verify pinned static MoltenVK, SDL2 and the required FFmpeg libraries
-for the device SDK. Inspect actual Vulkan features/extensions before renderer
-creation. An environment variable is not proof that a required feature works.
-No dependency binaries or completed cross-compilation scripts are included in
-this initial project.
+The pinned dependency script now builds CoreAudio SDL2 and minimal FFmpeg,
+verifies a static MoltenVK package, and compiles the actual native audio mixer.
+See [dependencies](DEPENDENCIES.md). A device capability query reports actual
+Vulkan requirements before renderer creation. Stock MoltenVK 1.4.2 does not
+provide the robustness/null-descriptor and geometry/cull features required by
+this DXVK D3D9 path. Argument buffers do not fix that mismatch. Evaluate a real
+fallback or compatible implementation using [the renderer evidence](../graphics/RENDERER_OPTIONS.md).
 
 The handoff's `dxvk.maxDeviceMemory` / `dxvk.maxSharedMemory` keys do not exist
 in pinned DXVK. `dxgi.maxDeviceMemory` / `dxgi.maxSharedMemory` belong to DXGI.
@@ -88,6 +98,14 @@ with real BO1 input and menu-state callbacks. Keep held input separate from
 one-time accumulated look deltas. Validate any entity/death/trace constants
 against the selected engine revision before enabling aim assist.
 
+This repository now supplies a new draggable HUD, GameController frontend,
+portable input transport and native BO1 gamepad adapter. It uses the actual
+gamepad/native queue seam instead of importing BO2 guest-memory code or guessing
+usercmd fields. The full engine still needs its checked `IN_Frame` patch,
+exclusive input-producer ownership and lifecycle reset hook. The diagnostics
+app tests input transport; gameplay and menu behavior remain separate checks.
+See [the input integration contract](INPUT.md).
+
 The current Steam implementation is a Swift service in
 `ios/SteamServices/BO2GameDownload.swift`, driven by the launcher, not a ready
 download view controller. It selects BO2 AppIDs and a different destination.
@@ -105,9 +123,10 @@ The upstream feature table explicitly lists campaign as unavailable. Campaign
 remains a separate implementation milestone, not an automatic result of the
 iOS platform port. Combat Training likewise needs its own iOS validation.
 
-After a real game target links, add unsigned app-bundle/IPA packaging to CI.
-The current verification workflow intentionally builds platform archives only.
-Creating an IPA around a missing engine would not establish a playable port.
+After a real game target links, package and validate the game IPA. The current
+separately named diagnostics app has its own entrypoint and no engine. Its IPA
+can collect actual iPhone capability/input/audio evidence without claiming a
+playable port. It does not satisfy this gameplay milestone.
 
 Sources: [upstream feature scope](https://github.com/Zephelinn/BO1-Ascension-ARM64/blob/3401a66355c07d6c590049c2f42b7635c9bf00ac/README.md),
 [Apple background GPU requirements](https://developer.apple.com/documentation/metal/preparing-your-metal-app-to-run-in-the-background),

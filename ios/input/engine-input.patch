@@ -1,0 +1,121 @@
+--- a/src/web/web_input.cpp
++++ b/src/web/web_input.cpp
+@@ -33,6 +33,10 @@
+ #include <native_video.h>
+ #endif
+ #include <atomic>
++#if defined(PLATFORM_IOS)
++#include "bo1_engine_input.h"
++#include "ios_input_bridge.h"
++#endif
+ 
+ // win_wndproc.cpp / win_input.cpp globals
+ WinVars_t g_wv;
+@@ -80,6 +84,9 @@
+     uint8_t console;    // key: the scancode-0x29 key (`~)
+     int32_t value;      // key: virtual key; char: character; buttons: mask; wheel: +1 up / -1 down
+     uint32_t time;
++#if defined(PLATFORM_IOS)
++    uint64_t iosEpoch; // Stale work is rejected after a UIKit lifecycle reset.
++#endif
+ };
+ 
+ constexpr uint32_t QUEUE_SIZE = 1024;
+@@ -90,6 +97,9 @@
+ 
+ std::atomic<int> s_mouseDx{0};
+ std::atomic<int> s_mouseDy{0};
++#if defined(PLATFORM_IOS)
++std::atomic<uint64_t> s_iosMotionEpoch{0};
++#endif
+ std::atomic<int> s_mouseX{32768};   // position in the canvas, 0..65536 of its CSS box
+ std::atomic<int> s_mouseY{32768};
+ std::atomic<int> s_wantPointerLock{0};
+@@ -109,6 +119,10 @@
+     if (w - s_queueRead.load(std::memory_order_acquire) >= QUEUE_SIZE)
+         return;
+     s_queue[w % QUEUE_SIZE] = e;
++#if defined(PLATFORM_IOS)
++    // The sole iOS producer is IOS_BO1_PumpInput, never UIKit or SDL.
++    s_queue[w % QUEUE_SIZE].iosEpoch = IOS_BO1_InputEpoch();
++#endif
+     s_queueWrite.store(w + 1, std::memory_order_release);
+ }
+ 
+@@ -399,10 +413,28 @@
+     Push(f);
+ }
+ 
++#if defined(PLATFORM_IOS)
++extern "C" float bo1_native_input_trigger_deadzone(void)
++{
++    // No trigger action is accepted before the native gamepad dvars exist.
++    return gpad_button_deadzone ? gpad_button_deadzone->current.value : 1.0f;
++}
++
++extern "C" void bo1_native_input_clear_motion(void)
++{
++    s_mouseDx.exchange(0);
++    s_mouseDy.exchange(0);
++    s_iosMotionEpoch.store(IOS_BO1_InputEpoch(), std::memory_order_release);
++}
++#endif
++
+ extern "C" void bo1_native_input_motion(int dx, int dy, int x, int y, int width, int height)
+ {
+     s_mouseDx.fetch_add(dx);
+     s_mouseDy.fetch_add(dy);
++#if defined(PLATFORM_IOS)
++    s_iosMotionEpoch.store(IOS_BO1_InputEpoch(), std::memory_order_release);
++#endif
+     if (width > 0 && height > 0 && !s_pointerLocked.load())
+     {
+         double fx = (double)x / width, fy = (double)y / height;
+@@ -514,14 +546,20 @@
+ {
+     if (s_pumping.exchange(1))
+         return;   // one consumer at a time (Win_GetEvent can run on other threads while loading)
+-#ifdef BO1_NATIVE
+-    bo1_native_video_pump();   // native: the window's pending events -> the queue drained below
++#if defined(BO1_NATIVE) && !defined(PLATFORM_IOS)
++    bo1_native_video_pump();   // iOS has one producer in IN_Frame instead.
+ #endif
+     uint32_t r = s_queueRead.load(std::memory_order_relaxed);
+     const uint32_t w = s_queueWrite.load(std::memory_order_acquire);
+     for (; r != w; ++r)
+     {
+         const InputEvent e = s_queue[r % QUEUE_SIZE];
++#if defined(PLATFORM_IOS)
++        // This consumer is already serialized by s_pumping. Do not replay
++        // queued clicks/focus changes from before an all-source reset.
++        if (e.iosEpoch != IOS_InputResetEpoch())
++            continue;
++#endif
+         g_msgTime = (int)Sys_Milliseconds();
+         switch (e.type)
+         {
+@@ -695,8 +733,12 @@
+         return;
+     int w, h;
+     bo1_web_canvas_size(&w, &h);
+-    const int dx = s_mouseDx.exchange(0);
+-    const int dy = s_mouseDy.exchange(0);
++    int dx = s_mouseDx.exchange(0);
++    int dy = s_mouseDy.exchange(0);
++#if defined(PLATFORM_IOS)
++    if (s_iosMotionEpoch.load(std::memory_order_acquire) != IOS_InputResetEpoch())
++        dx = dy = 0;
++#endif
+     const int x = (int)((int64_t)s_mouseX.load() * w / 65536);
+     const int y = (int)((int64_t)s_mouseY.load() * h / 65536);
+     s_wmv.oldPos.x = x;
+@@ -718,6 +760,9 @@
+ 
+ void __cdecl IN_Frame()
+ {
++#if defined(PLATFORM_IOS)
++    IOS_BO1_PumpInput(); // Before both IN_MouseMove and IN_GamepadsMove.
++#endif
+     if (Dvar_GetBool("ClickToContinue"))
+         IN_MouseEvent(s_wmv.oldButtonState | 1);   // win_input.cpp posts WM_LBUTTONDOWN
+     if (s_wmv.mouseInitialized)

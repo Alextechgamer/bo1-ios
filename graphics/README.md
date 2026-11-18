@@ -185,6 +185,15 @@ or MoltenVK rendering; the Apple CI link target is the separate SDK gate.
 The small capability-query source has also compiled against the pinned
 Vulkan headers. It has not been executed on an iPhone.
 
+The iPhoneOS arm64 compilation and full DXVK/static-MoltenVK executable link
+also completed at source `f226d37` in
+[Apple CI run 44243665503](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665503).
+That run's later audio-artifact path check failed separately; this evidence
+is the completed compile/link step, not a claim that the entire job passed.
+The separately named [BO1 Port Diagnostics app](../ios/Diagnostics/README.md)
+collects the still-needed device capability, surface, address, input, and
+optional audio observations. It does not run a game.
+
 On a machine with Git and a C++20 compiler:
 
 ```sh

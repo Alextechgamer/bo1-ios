@@ -17,8 +17,16 @@ jobs:
         run: |
           git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk
           git -C vendor/dxvk submodule update --init --depth 1 include/vulkan
-      - name: Test startup and display state
-        run: python3 scripts/run_host_tests.py --sanitize address,undefined
+      - name: Fetch the pinned native input interface
+        run: |
+          git init vendor/bo1-engine
+          git -C vendor/bo1-engine remote add origin https://github.com/Zephelinn/BO1-Ascension-ARM64.git
+          git -C vendor/bo1-engine fetch --depth 1 origin 3401a66355c07d6c590049c2f42b7635c9bf00ac
+          git -C vendor/bo1-engine checkout --detach FETCH_HEAD
+          python3 ios/input/apply_engine_input.py vendor/bo1-engine
+          python3 ios/input/apply_engine_input.py vendor/bo1-engine
+      - name: Test startup, display state and native input contracts
+        run: python3 scripts/run_host_tests.py --sanitize address,undefined --engine-source vendor/bo1-engine
       - name: Test real DXVK WSI interface and static loader
         run: python3 graphics/tests/run_wsi_tests.py vendor/dxvk
   apple-sdk-compile:
@@ -47,11 +55,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install native build tools
         run: brew install ninja glslang
-      - name: Fetch the pinned native audio source
+      - name: Fetch the pinned native input and audio source
         run: |
           git init vendor/bo1-engine
-          git -C vendor/bo1-engine remote add origin https://github.com/SevyW/bo1-zombies-android.git
-          git -C vendor/bo1-engine fetch --depth 1 origin e121bab3412988b29534fad26c257adc24329818
+          git -C vendor/bo1-engine remote add origin https://github.com/Zephelinn/BO1-Ascension-ARM64.git
+          git -C vendor/bo1-engine fetch --depth 1 origin 3401a66355c07d6c590049c2f42b7635c9bf00ac
           git -C vendor/bo1-engine checkout --detach FETCH_HEAD
       - name: Fetch all pinned DXVK renderer dependencies
         run: |
@@ -60,22 +68,33 @@ jobs:
           python3 patches/dxvk/apply.py vendor/dxvk
       - name: Build pinned ARM64 CoreAudio and FFmpeg dependencies
         run: bash scripts/build_ios_deps.sh --jobs 3
-      - name: Configure full native D3D9 renderer and audio mixer
+      - name: Configure the native libraries and diagnostics app
         run: >-
           cmake -S . -B build-ios-native -G Xcode
           -DCMAKE_TOOLCHAIN_FILE=cmake/ios.cmake
           -DBO1_BUILD_IOS_AUDIO=ON -DBO1_BUILD_IOS_PLATFORM=ON
-          -DBO1_BUILD_IOS_DXVK=ON -DBUILD_TESTING=OFF
+          -DBO1_BUILD_IOS_DXVK=ON -DBO1_BUILD_DIAGNOSTICS=ON -DBUILD_TESTING=OFF
           -DBO1_ENGINE_SOURCE_DIR="$PWD/vendor/bo1-engine"
           -DBO1_DXVK_SOURCE_DIR="$PWD/vendor/dxvk"
-      - name: Compile and link actual renderer and audio libraries
+      - name: Compile and link the native libraries and diagnostics app
         run: cmake --build build-ios-native --config Release --parallel 3 -- CODE_SIGNING_ALLOWED=NO
       - name: Record device binary platform and dependencies
         run: |
-          xcrun vtool -show-build build-ios-native/Release-iphoneos/bo1_audio_link_probe > build-ios-native/audio-platform.txt
-          xcrun otool -L build-ios-native/Release-iphoneos/bo1_audio_link_probe > build-ios-native/audio-linkage.txt
+          xcrun vtool -show-build build-ios-native/Release-iphoneos/bo1_audio_link_probe.app/bo1_audio_link_probe > build-ios-native/audio-platform.txt
+          xcrun otool -L build-ios-native/Release-iphoneos/bo1_audio_link_probe.app/bo1_audio_link_probe > build-ios-native/audio-linkage.txt
           xcrun vtool -show-build build-ios-native/Release-iphoneos/bo1_dxvk_link_probe > build-ios-native/renderer-platform.txt
           xcrun otool -L build-ios-native/Release-iphoneos/bo1_dxvk_link_probe > build-ios-native/renderer-linkage.txt
+          xcrun vtool -show-build build-ios-native/Release-iphoneos/BO1PortDiagnostics.app/BO1PortDiagnostics > build-ios-native/diagnostics-platform.txt
+          xcrun otool -L build-ios-native/Release-iphoneos/BO1PortDiagnostics.app/BO1PortDiagnostics > build-ios-native/diagnostics-linkage.txt
+      - name: Package the separately named unsigned diagnostics IPA
+        run: python3 scripts/package_diagnostics.py --app build-ios-native/Release-iphoneos/BO1PortDiagnostics.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BO1-Port-Diagnostics-Unsigned
+          path: |
+            dist/BO1-Port-Diagnostics-Unsigned.ipa
+            dist/BO1-Port-Diagnostics-Unsigned.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: ios-native-build-evidence
@@ -83,5 +102,5 @@ jobs:
             third_party/ios/audio-build.json
             build-ios-native/*-platform.txt
             build-ios-native/*-linkage.txt
-# This workflow deliberately does not label a platform-only archive as an IPA.
+# This IPA runs platform diagnostics; it contains no game engine or game assets.
 # Game packaging follows a real linked engine/HUD/renderer adapter and ABI proof.

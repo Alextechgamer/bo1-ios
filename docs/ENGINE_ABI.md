@@ -76,6 +76,57 @@ The issue was closed when inspected; that does not identify which Apple Clang
 release contains a fix. The supplied assembly tests check the compiler actually
 used by a build.
 
+## Observed Apple CI result
+
+[Workflow run 44243665497](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665497)
+tested commit
+[`f226d374c853512878b89911edc653581a6c03f2`](https://github.com/Alextechgamer/bo1-ios/commit/f226d374c853512878b89911edc653581a6c03f2).
+Its `engine-abi-evidence` artifact contains `report.json`, compiler logs, assembly
+and Mach-O inspection reports. The actual compiler was **Apple Clang 17.0.0
+(`clang-1700.0.13.5`) from Xcode 16.4**, with **iPhoneOS 18.5 SDK** and target
+`arm64-apple-ios16.0`.
+
+The frontend layout stage **failed**. The compiler accepted the annotated pointer
+type's spelling but its storage and alignment remained eight bytes:
+
+| Assertion | Required | Observed |
+| --- | --- | --- |
+| Native pointer size | 8 bytes | 8 bytes |
+| `sizeof(P32)` | 4 bytes | 8 bytes |
+| `alignof(P32)` | 4 bytes | 8 bytes |
+| Synthetic record size | 12 bytes | 24 bytes |
+| Pointer field offset | 4 bytes | 8 bytes |
+| Following field offset | 8 bytes | 16 bytes |
+
+All five incompatible layout assertions remain enabled. This compiler cannot
+preserve the inspected engine's four-byte pointer layout with the tested flags.
+The ABI job must remain failed for that result; correcting an unrelated diagnostic
+build error does not make the engine compatible.
+
+The independent experiments produced these results:
+
+| Experiment | Observed result |
+| --- | --- |
+| Portable relative-reference test | Passed 18 checks using a real host address above 4 GiB |
+| Host address diagnostic | Passed on the macOS runner, including its 64 MiB pthread; no iPhone execution |
+| Narrow stores, `-O0` and `-O2` | Both emitted `strb`/`strh` for the supplied isolated LLVM IR |
+| Ordinary iOS Mach-O link | Passed; PIE set, protected 4 GiB PAGEZERO, preferred text address `0x100000000` |
+| 2048 MiB zero-fill arena link | Passed; zero-fill data size 2,147,483,648 bytes; total mapped image span 2,147,532,800 bytes; file size 33,000 bytes |
+| iOS address diagnostic object | Failed because that SDK's `mach/mach_vm.h` explicitly reports unsupported |
+
+The narrow-store passes establish store widths for those IR functions only.
+They do not establish correct C++ pointer layouts, a four-byte function-argument
+ABI, pointer rebasing, or compatibility of the full engine. The linked arena was
+not launched; its small file size reflects zero-fill virtual storage rather than
+proof of an available device memory budget. The recorded preferred text address
+is a link-time value, before a device's ASLR slide.
+
+The diagnostic source has subsequently been corrected to use the SDK's public
+`vm_allocate`/`vm_deallocate` API and `vm_address_t`/`vm_size_t`, with explicit
+64-bit assertions. It no longer includes the unsupported header or redeclares
+unavailable APIs. This correction needs its own Apple CI result; the failed
+historical run is preserved above. No device runtime result exists yet.
+
 ## Run the experiments
 
 On Linux or macOS with Python 3 and a C++20 compiler:
@@ -102,7 +153,9 @@ Each stage has its own log and runs even if another stage fails. `report.json`
 records passes, failures and skips. An unavailable Apple toolchain is explicitly
 skipped on Linux, and makes `--require-apple` return a nonzero status. A failing
 executed stage also returns nonzero. CI should upload `build/engine-abi/` even
-when this command fails. Do not interpret skipped target checks as passing.
+when this command fails. Failed command stages print the reason, log path and a
+bounded diagnostic excerpt directly in CI output; the complete log is retained.
+Do not interpret skipped target checks as passing.
 
 | Experiment | What it establishes | What it does not establish |
 | --- | --- | --- |

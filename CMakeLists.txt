@@ -4,14 +4,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CTest)
+include(cmake/ios_input.cmake)
 
 option(BO1_BUILD_IOS_AUDIO "Build and link the pinned native mixer with iOS audio dependencies" OFF)
 if(BO1_BUILD_IOS_AUDIO)
   include(cmake/ios_audio.cmake)
 endif()
 
-# This initial project builds platform components, not an engine or an IPA.
-# The real engine ABI and BO1IOSCreateHostServices adapter remain required.
+# The game engine ABI and BO1IOSCreateHostServices adapter remain required.
+# A separately named diagnostics app can exercise the platform components.
 if(BUILD_TESTING AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
   find_package(Threads REQUIRED)
   add_executable(bo1_platform_tests tests/test_platform_state.cpp ios/bo1_asset_gate.cpp)
@@ -33,6 +34,7 @@ if(BO1_BUILD_IOS_PLATFORM)
   set(CMAKE_OBJCXX_STANDARD 20)
   set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
   set(CMAKE_OBJCXX_EXTENSIONS OFF)
+  bo1_add_input_frontend()
   set(BO1_VULKAN_INCLUDE "${BO1_DXVK_SOURCE_DIR}/include/vulkan/include")
   add_library(bo1_ios_host STATIC
     ios/AppDelegate.mm ios/GameViewController.mm ios/ios_platform_bridge.mm ios/bo1_asset_gate.cpp)
@@ -69,4 +71,9 @@ if(BO1_BUILD_IOS_DXVK)
   bo1_add_dxvk_link_probe(bo1_dxvk_link_probe
     DXVK_TARGET bo1_dxvk_d3d9 PLATFORM_TARGET bo1_ios_host
     MOLTENVK_LIBRARY "${BO1_IOS_DEPS_DIR}/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a")
+endif()
+
+option(BO1_BUILD_DIAGNOSTICS "Build the separately named BO1 Port Diagnostics device app" OFF)
+if(BO1_BUILD_DIAGNOSTICS)
+  include(cmake/ios_diagnostics.cmake)
 endif()

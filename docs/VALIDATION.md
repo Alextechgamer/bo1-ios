@@ -1,6 +1,53 @@
-# Validation — platform project
+# Validation — platform, native libraries, and diagnostics
 
-## GitHub verification — November 17, 2026 (Pacific time)
+## Native library link milestone — November 17, 2026 (Pacific time)
+
+Code revision: `f226d374c853512878b89911edc653581a6c03f2`.
+[Workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665503).
+The host and Apple platform jobs passed. The native job printed
+`BUILD SUCCEEDED` after linking the real audio probe and the complete
+DXVK/MoltenVK renderer probe. Its subsequent evidence-recording step failed
+because it looked for the audio executable outside the Xcode-created `.app`
+wrapper. The workflow now uses the observed bundle path.
+
+This establishes a complete native-library link, not a rendered frame or an
+on-device run. The SDL2/CoreAudio and selected FFmpeg libraries were compiled
+from pinned sources. The DXVK probe force-loads the complete D3D9 archive,
+including generated shader code, and resolves it against static MoltenVK
+without allowing unresolved symbols. Earlier CI failures found and corrected
+`lipo` argument order, Xcode C-source definitions, and an Apple `size_t`
+overload ambiguity; the actual successful link covers those corrections.
+
+The separate [ABI experiment run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44243665497)
+failed its four-byte pointer-layout assertions under Apple Clang 17/Xcode
+16.4. The report also contains successful isolated narrow stores and ordinary
+PIE/PAGEZERO/image-arena links. Its address-diagnostic object originally used
+an unavailable SDK header; that source now uses the public VM API and awaits
+the next Apple build. Full results and distinctions are in
+[ENGINE_ABI.md](ENGINE_ABI.md).
+
+## Native input and diagnostics source checks
+
+The expanded host suite passes 14 platform checks, 49 portable input checks,
+and 60 native-adapter checks against the actual pinned upstream gamepad
+header. AddressSanitizer and UndefinedBehaviorSanitizer pass; only leak
+detection is disabled locally because the executor runs under ptrace.
+CMake generation, build and CTest pass all three registered suites. The ABI
+evidence parser's 12 checks pass. The pinned native input patch applies
+cleanly and recognizes an already-applied patch.
+
+Input review covered rapid repeated taps, menu pointer timing and native
+button navigation, nonzero trigger-rest values, stale-event generations,
+controller replacement, and pause/resume occurring between engine polls.
+The diagnostics frontend consumes input only when no engine consumer is
+linked. These tests do not run UIKit or T5 gameplay on a phone.
+
+The separately named `BO1 Port Diagnostics` target and packaging workflow
+are supplied for actual device evidence. Their Apple build, artifact and
+device-execution results must be recorded separately; source review and
+portable tests alone do not establish an installable app.
+
+## Initial platform verification — November 17, 2026 (Pacific time)
 
 Code revision: `fc8db4d5cc566d0a2ff786338fe3887d161458a7`.
 [Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44236856910).
@@ -52,13 +99,12 @@ exercise a real Vulkan driver or a UIKit view.
 
 ## Not yet demonstrated
 
-- Linking the complete DXVK renderer and static MoltenVK for iOS.
 - A compatible iOS implementation of the BO1 ptr32/low-address memory model.
 - The real `BO1IOSCreateHostServices` engine/HUD/input/lifecycle adapter.
 - Steam sign-in, ownership/depot selection or downloads through this project.
 - A rendered game frame, map loading, audio, touch/controller gameplay,
   aim assist, memory behavior, safe backgrounding or performance on an iPhone.
-- A generated, signed or installed IPA.
+- A packaged diagnostics IPA, successful signing/installation, or device execution.
 
 The on-push verification workflow is active in `Alextechgamer/bo1-ios`.
-The latest observed run above verifies the exact code revision recorded there.
+Each observed run above verifies the exact code revision recorded with it.
