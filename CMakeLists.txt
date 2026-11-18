@@ -32,12 +32,16 @@ if(BO1_BUILD_IOS_PLATFORM)
   add_library(bo1_ios_host STATIC
     ios/AppDelegate.mm ios/GameViewController.mm ios/ios_platform_bridge.mm ios/bo1_asset_gate.cpp)
   target_include_directories(bo1_ios_host PUBLIC ios/include "${BO1_VULKAN_INCLUDE}")
-  target_compile_options(bo1_ios_host PRIVATE "$<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>")
+  # Xcode cannot reliably represent a per-language target option when C++ and
+  # Objective-C++ share this archive. Set ARC on the .mm sources explicitly.
+  set_source_files_properties(ios/AppDelegate.mm ios/GameViewController.mm
+    ios/ios_platform_bridge.mm ios/main.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
   target_compile_definitions(bo1_ios_host PUBLIC PLATFORM_IOS=1 VK_USE_PLATFORM_METAL_EXT=1)
   target_link_libraries(bo1_ios_host INTERFACE "-framework Foundation" "-framework UIKit"
     "-framework Metal" "-framework QuartzCore")
   add_library(bo1_ios_entrypoint OBJECT ios/main.mm)
-  target_compile_options(bo1_ios_entrypoint PRIVATE -fobjc-arc)
+  set_target_properties(bo1_ios_host bo1_ios_entrypoint PROPERTIES
+    XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES")
 
   # Compilation of the real patched WSI/loader, NOT the complete DXVK renderer.
   add_library(bo1_dxvk_platform STATIC
