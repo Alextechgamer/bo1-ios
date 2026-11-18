@@ -2,15 +2,16 @@
 
 ## Diagnostics app build — November 17, 2026 (Pacific time)
 
-Code revision: `3f3fa3ed551c2740dbec480f68a09cb947062cae`.
-[Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44245260249).
+Code revision: `9e54ea9fedda8592df80c0f4601e62c12d5cef62`.
+[Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44246156402).
 
 | Job / artifact | Observed result |
 | --- | --- |
 | `host-tests` | PASS: 14 platform, 49 portable input and 60 actual-header native adapter checks with sanitizers, plus the real DXVK WSI harness |
 | `apple-sdk-compile` | PASS: UIKit host, touch/controller frontend, Metal bridge and patched DXVK platform sources compiled for device ARM64 |
 | `apple-native-link` | PASS: actual SDL/FFmpeg/native mixer and complete DXVK/MoltenVK link probes, plus the independent diagnostics app |
-| Diagnostics package | Unsigned IPA produced and downloaded; checksum, executable permission, bundle identifier, plist and Mach-O load commands verified |
+| Diagnostics package | Unsigned IPA produced and downloaded; checksum, executable permission, bundle identifier, plist, Mach-O load commands and all 12 bundled notice/provenance files verified |
+| Retained link inputs | Downloaded and checked: 160 object files, 13 static archives, 14 link-file lists, dependency headers and generated Xcode project; all four diagnostics objects and required libraries are present |
 
 The executable is ARM64 iPhoneOS with a 16.0 minimum OS, built against SDK
 18.5. Its load commands preserve PIE and the protected first 4 GiB. `otool -L`
@@ -19,9 +20,21 @@ require separately installed dynamic libraries. The bundle ID is
 `com.alextechgamer.bo1ios.diagnostics` and its displayed name is
 `BO1 Port Diagnostics`.
 
-This is the first verified diagnostic app build. Subsequent packaging work
-adds dependency notices and retains link inputs separately. No iPhone
-installation or execution has been observed. The app contains no engine;
+The [diagnostics artifact](https://github.com/Alextechgamer/bo1-ios/actions/runs/44246156402/artifacts/14401573282)
+contains the IPA and its JSON manifest. The IPA is **1,884,421 bytes** with SHA256:
+
+```text
+d956e639e0b4d3a32bb7bfd2ff714f5d1619ba8100205e84e0efa2d3f2736af8
+```
+
+The executable embeds the tested source revision. Its SHA256, each notice
+hash, source pins and recipe hashes match the manifest/provenance. The
+[native build evidence](https://github.com/Alextechgamer/bo1-ios/actions/runs/44246156402/artifacts/14401867477)
+and [retained link inputs](https://github.com/Alextechgamer/bo1-ios/actions/runs/44246156402/artifacts/14401702970)
+are separate artifacts. Retaining link inputs does not establish that a
+modified binary has been successfully relinked or run on a phone.
+
+No iPhone installation or execution has been observed. The app contains no engine;
 its successful link does not resolve the failed engine ABI or missing Vulkan
 features. Its explicit PCM tone does not test xWMA decoding.
 
