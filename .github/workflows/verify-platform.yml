@@ -1,0 +1,42 @@
+name: Verify iOS platform source
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: platform-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned DXVK headers and source
+        run: |
+          git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk
+          git -C vendor/dxvk submodule update --init --depth 1 include/vulkan
+      - name: Test startup and display state
+        run: python3 scripts/run_host_tests.py --sanitize address,undefined
+      - name: Test real DXVK WSI interface and static loader
+        run: python3 graphics/tests/run_wsi_tests.py vendor/dxvk
+  apple-sdk-compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned DXVK source
+        run: |
+          git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk
+          git -C vendor/dxvk submodule update --init --depth 1 include/vulkan
+          python3 patches/dxvk/apply.py vendor/dxvk
+      - name: Configure iOS 16 ARM64 platform libraries
+        run: >-
+          cmake -S . -B build-ios -G Xcode
+          -DCMAKE_TOOLCHAIN_FILE=cmake/ios.cmake
+          -DBO1_BUILD_IOS_PLATFORM=ON -DBUILD_TESTING=OFF
+          -DBO1_DXVK_SOURCE_DIR="$PWD/vendor/dxvk"
+      - name: Compile UIKit, Metal bridge, and DXVK platform archives
+        run: cmake --build build-ios --config Release -- CODE_SIGNING_ALLOWED=NO
+# This workflow deliberately does not label a platform-only archive as an IPA.
+# Game packaging follows a real linked engine/HUD/renderer adapter and ABI proof.

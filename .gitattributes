@@ -1,0 +1,2 @@
+# Preserve the space prefix on blank unified-diff context rows.
+*.patch -whitespace

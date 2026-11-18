@@ -1,0 +1,173 @@
+diff --git a/meson.build b/meson.build
+index 70d824f..965d780 100644
+--- a/meson.build
++++ b/meson.build
+@@ -147,22 +147,34 @@ else
+     './include/native/directx'
+   ]
+ 
+-  lib_sdl3 = dependency('SDL3', required: false)
+-  lib_sdl2 = dependency('SDL2', required: false)
+-  lib_glfw = dependency('glfw', required: false)
+-  if lib_sdl3.found()
+-    compiler_args += ['-DDXVK_WSI_SDL3']
+-  endif
+-  if lib_sdl2.found()
+-    compiler_args += ['-DDXVK_WSI_SDL2']
+-  endif
+-  if lib_glfw.found()
+-    compiler_args += ['-DDXVK_WSI_GLFW']
+-  endif
+-  if (not lib_sdl3.found() and not lib_sdl2.found() and not lib_glfw.found())
+-    error('SDL3, SDL2, or GLFW are required to build dxvk-native')
++  if get_option('dxvk_native_wsi') == 'metal'
++    if platform != 'darwin'
++      error('Metal WSI requires an Apple target.')
++    endif
++    bridge_include = get_option('ios_platform_bridge_include')
++    if bridge_include == ''
++      error('Metal WSI requires -Dios_platform_bridge_include=/absolute/path/to/ios/include')
++    endif
++    dxvk_include_dirs += [ bridge_include ]
++    compiler_args += [ '-DDXVK_WSI_METAL=1', '-DVK_USE_PLATFORM_METAL_EXT=1' ]
++  else
++    lib_sdl3 = dependency('SDL3', required: false)
++    lib_sdl2 = dependency('SDL2', required: false)
++    lib_glfw = dependency('glfw', required: false)
++    if lib_sdl3.found()
++      compiler_args += ['-DDXVK_WSI_SDL3']
++    endif
++    if lib_sdl2.found()
++      compiler_args += ['-DDXVK_WSI_SDL2']
++    endif
++    if lib_glfw.found()
++      compiler_args += ['-DDXVK_WSI_GLFW']
++    endif
++    if (not lib_sdl3.found() and not lib_sdl2.found() and not lib_glfw.found())
++      error('SDL3, SDL2, or GLFW are required to build dxvk-native')
++    endif
++
+   endif
+-  
+   dxvk_name_prefix = 'dxvk_'
+   dxvk_pkg_prefix = 'dxvk-'
+ 
+diff --git a/meson_options.txt b/meson_options.txt
+index 2a621ec..ed2466c 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -5,4 +5,5 @@ option('enable_d3d10', type : 'boolean', value : true, description: 'Build D3D10
+ option('enable_d3d11', type : 'boolean', value : true, description: 'Build D3D11')
+ option('build_id',     type : 'boolean', value : false)
+ 
+-option('dxvk_native_wsi',   type : 'string',  value : 'sdl2', description: 'WSI system to use if building natively.')
+\ No newline at end of file
++option('dxvk_native_wsi',   type : 'string',  value : 'sdl2', description: 'WSI system to use if building natively.')
++option('ios_platform_bridge_include', type : 'string', value : '', description: 'Absolute include directory containing ios_platform_bridge.h for Metal WSI.')
+diff --git a/src/util/util_win32_compat.h b/src/util/util_win32_compat.h
+index 5b156c6..c9b8ac1 100644
+--- a/src/util/util_win32_compat.h
++++ b/src/util/util_win32_compat.h
+@@ -1,6 +1,6 @@
+ #pragma once
+ 
+-#if defined(__unix__)
++#if defined(__unix__) || defined(__APPLE__)
+ 
+ #include <windows.h>
+ #include <dlfcn.h>
+diff --git a/src/vulkan/vulkan_loader.cpp b/src/vulkan/vulkan_loader.cpp
+index 17e9b62..63b6c40 100644
+--- a/src/vulkan/vulkan_loader.cpp
++++ b/src/vulkan/vulkan_loader.cpp
+@@ -10,6 +10,11 @@
+ namespace dxvk::vk {
+ 
+   static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
++#if defined(DXVK_WSI_METAL)
++    // MoltenVK is statically linked into the iOS app. Do not dlopen a desktop
++    // Vulkan loader or mix its instance domain with the UIKit Metal bridge.
++    return { HMODULE(nullptr), &::vkGetInstanceProcAddr };
++#else
+     static const std::array<const char*, 2> dllNames = {{
+ #ifdef _WIN32
+       "winevulkan.dll",
+@@ -39,6 +44,7 @@ namespace dxvk::vk {
+ 
+     Logger::err("Vulkan: vkGetInstanceProcAddr not found");
+     return { };
++#endif
+   }
+ 
+   LibraryLoader::LibraryLoader() {
+@@ -50,8 +56,10 @@ namespace dxvk::vk {
+   }
+ 
+   LibraryLoader::~LibraryLoader() {
++#if !defined(DXVK_WSI_METAL)
+     if (m_library)
+       FreeLibrary(m_library);
++#endif
+   }
+ 
+   PFN_vkVoidFunction LibraryLoader::sym(VkInstance instance, const char* name) const {
+diff --git a/src/wsi/meson.build b/src/wsi/meson.build
+index 1d88e2c..2b63f65 100644
+--- a/src/wsi/meson.build
++++ b/src/wsi/meson.build
+@@ -1,6 +1,7 @@
+ wsi_src = [
+   'wsi_edid.cpp',
+   'wsi_platform.cpp',
++  'metal/wsi_platform_ios.cpp',
+   'win32/wsi_monitor_win32.cpp',
+   'win32/wsi_platform_win32.cpp',
+   'win32/wsi_window_win32.cpp',
+@@ -20,7 +21,7 @@ wsi_deps = [ dep_displayinfo ]
+ if platform == 'windows'
+   lib_setupapi = cpp.find_library('setupapi')
+   wsi_deps += [ lib_setupapi ]
+-else
++elif get_option('dxvk_native_wsi') != 'metal'
+   wsi_deps += [
+     lib_sdl3.partial_dependency(compile_args: true, includes: true),
+     lib_sdl2.partial_dependency(compile_args: true, includes: true),
+diff --git a/src/wsi/wsi_platform.cpp b/src/wsi/wsi_platform.cpp
+index c6f12bd..dad2c29 100644
+--- a/src/wsi/wsi_platform.cpp
++++ b/src/wsi/wsi_platform.cpp
+@@ -9,6 +9,9 @@ namespace dxvk::wsi {
+   static int s_refcount = 0;
+ 
+   static const WsiBootstrap *wsiBootstrap[] = {
++#if defined(DXVK_WSI_METAL)
++    &MetalWSI,
++#endif
+ #if defined(DXVK_WSI_WIN32)
+     &Win32WSI,
+ #endif
+@@ -31,7 +34,9 @@ namespace dxvk::wsi {
+     if (hint == "") {
+         // At least for Windows, it is reasonable to fall back to a default;
+         // for other platforms however we _need_ to know which WSI to use!
+-#if defined(DXVK_WSI_WIN32)
++#if defined(DXVK_WSI_METAL)
++        hint = "Metal";
++#elif defined(DXVK_WSI_WIN32)
+         hint = "Win32";
+ #else
+         throw DxvkError("DXVK_WSI_DRIVER environment variable unset");
+diff --git a/src/wsi/wsi_platform.h b/src/wsi/wsi_platform.h
+index 80dd8c5..c75c509 100644
+--- a/src/wsi/wsi_platform.h
++++ b/src/wsi/wsi_platform.h
+@@ -102,6 +102,9 @@ namespace dxvk::wsi {
+     bool (*createDriver)(WsiDriver **driver);
+   };
+ 
++#if defined(DXVK_WSI_METAL)
++  extern WsiBootstrap MetalWSI;
++#endif
+ #if defined(DXVK_WSI_WIN32)
+   extern WsiBootstrap Win32WSI;
+ #endif

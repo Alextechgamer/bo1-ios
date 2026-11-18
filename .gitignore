@@ -1,0 +1,11 @@
+/build*/
+/vendor/
+/dist/
+*.ipa
+*.app/
+*.xcarchive/
+*.xcframework/
+*.o
+*.a
+__pycache__/
+.DS_Store
