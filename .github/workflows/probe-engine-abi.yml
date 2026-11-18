@@ -1,0 +1,50 @@
+name: Probe native engine ABI
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'engine/probes/**'
+      - 'scripts/probe_engine_abi.py'
+      - '.github/workflows/probe-engine-abi.yml'
+jobs:
+  compiler-and-address-model:
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify diagnostic parsers
+        run: python3 engine/probes/test_probe_engine_abi.py
+      - name: Test the actual Apple compiler and normal iOS address model
+        run: python3 scripts/probe_engine_abi.py --output-dir build/engine-abi --require-apple
+      - name: Summarize the independent compatibility results
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report_path = Path('build/engine-abi/report.json')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write('## Engine ABI experiments\n\n')
+              output.write('These experiments do not compile or run BO1. The engine ABI is not implemented.\n\n')
+              if report_path.is_file():
+                  report = json.loads(report_path.read_text())
+                  output.write('| Experiment | Result |\n| --- | --- |\n')
+                  for stage in report['stages']:
+                      output.write(f"| {stage['name']} | {stage['status']} |\n")
+                  output.write('\n`engine_ready=false`; `ios_runtime_tested=false`.\n')
+                  output.write('\nA failed compiler/codegen experiment remains a failed job; its logs are retained.\n')
+              else:
+                  output.write('No diagnostic report was produced; inspect the job failure.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engine-abi-evidence
+          if-no-files-found: error
+          path: |
+            build/engine-abi/*.json
+            build/engine-abi/*.log
+            build/engine-abi/*.ll
+            build/engine-abi/*.s

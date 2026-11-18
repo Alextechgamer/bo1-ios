@@ -1,0 +1,17 @@
+diff --git a/src/util/util_small_vector.h b/src/util/util_small_vector.h
+--- a/src/util/util_small_vector.h
++++ b/src/util/util_small_vector.h
+@@ -194,7 +194,12 @@ namespace dxvk {
+ 
+     size_t pick_capacity(size_t n) {
+       // Pick next largest power of two for the new capacity
+-      return size_t(1u) << ((sizeof(n) * 8u) - bit::lzcnt(n - 1));
++      // Darwin's size_t and uint64_t are different unsigned types with the
++      // same width. Select the width explicitly to avoid ambiguous overloads.
++      using CountType = std::conditional_t<sizeof(size_t) == sizeof(uint64_t),
++        uint64_t, uint32_t>;
++      static_assert(sizeof(CountType) == sizeof(size_t));
++      return size_t(1u) << ((sizeof(n) * 8u) - bit::lzcnt(CountType(n - 1)));
+     }
+ 
+     T* ptr(size_t idx) {
