@@ -100,21 +100,29 @@ function(bo1_add_dxvk_d3d9 target)
     endif()
     list(APPEND sources "${source}/${relative}")
   endforeach()
-  add_library(${target} STATIC ${sources} "${pnp_table}" ${shader_headers})
+  add_library(${target} STATIC ${sources} "${pnp_table}" ${shader_headers}
+    "${project_root}/graphics/probes/dxvk_capabilities.cpp")
   set_target_properties(${target} PROPERTIES
     C_STANDARD 11 C_STANDARD_REQUIRED YES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO POSITION_INDEPENDENT_CODE YES)
   target_compile_definitions(${target} PRIVATE
-    DXVK_WSI_METAL=1 VK_USE_PLATFORM_METAL_EXT=1 VK_ENABLE_BETA_EXTENSIONS=1 BO1_DXVK_STATIC=1
-    "$<$<COMPILE_LANGUAGE:C>:_POSIX_C_SOURCE=200809L>"
-    "$<$<COMPILE_LANGUAGE:C>:static_array=static>")
+    DXVK_WSI_METAL=1 VK_USE_PLATFORM_METAL_EXT=1 VK_ENABLE_BETA_EXTENSIONS=1 BO1_DXVK_STATIC=1)
+  # Xcode does not reliably preserve language-filtered target definitions in
+  # a mixed C/C++ archive. Keep these libdisplay-info requirements on its real
+  # C sources, including the generated PNP table, rather than on C++ files.
+  set(display_info_c_sources "${pnp_table}")
+  foreach(relative IN LISTS BO1_DXVK_DISPLAY_INFO_SOURCES)
+    list(APPEND display_info_c_sources "${source}/${relative}")
+  endforeach()
+  set_property(SOURCE ${display_info_c_sources} APPEND PROPERTY COMPILE_DEFINITIONS
+    _POSIX_C_SOURCE=200809L static_array=static)
   target_include_directories(${target} PRIVATE
     "${DXVK_BRIDGE_INCLUDE_DIR}" "${generated}" "${source}/include"
     "${source}/include/native" "${source}/include/spirv/include"
-    "${source}/include/vulkan/include" "${display_info}/include")
+    "${display_info}/include")
   target_include_directories(${target} PUBLIC
     "${project_root}/graphics/include" "${source}/include/native/windows"
-    "${source}/include/native/directx")
+    "${source}/include/native/directx" "${source}/include/vulkan/include")
   # Keep upstream's ordinary unused-parameter/member warnings from obscuring
   # platform errors; do not disable type or link errors to manufacture a build.
   target_compile_options(${target} PRIVATE -Wno-unused-parameter -Wno-missing-field-initializers)
