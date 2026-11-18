@@ -1,0 +1,24 @@
+#pragma once
+// Internal to DXVK's entry-point translation unit. The BO1 engine has its own
+// Direct3D9 shim, so static DXVK symbols must not interpose on the engine ABI.
+// The native-pointer bridge calls the two public factories in bo1_dxvk_d3d9.h.
+#define Direct3DCreate9 BO1_DXVK_Direct3DCreate9
+#define Direct3DCreate9Ex BO1_DXVK_Direct3DCreate9Ex
+#define D3DPERF_BeginEvent BO1_DXVK_D3DPERF_BeginEvent
+#define D3DPERF_EndEvent BO1_DXVK_D3DPERF_EndEvent
+#define D3DPERF_SetMarker BO1_DXVK_D3DPERF_SetMarker
+#define D3DPERF_SetRegion BO1_DXVK_D3DPERF_SetRegion
+#define D3DPERF_QueryRepeatFrame BO1_DXVK_D3DPERF_QueryRepeatFrame
+#define D3DPERF_SetOptions BO1_DXVK_D3DPERF_SetOptions
+#define D3DPERF_GetStatus BO1_DXVK_D3DPERF_GetStatus
+#define DebugSetMute BO1_DXVK_DebugSetMute
+#define DebugSetLevel BO1_DXVK_DebugSetLevel
+#define PSGPError BO1_DXVK_PSGPError
+#define PSGPSampleTexture BO1_DXVK_PSGPSampleTexture
+#define Direct3DShaderValidatorCreate9 BO1_DXVK_Direct3DShaderValidatorCreate9
+#define Direct3D9EnableMaximizedWindowedModeShim BO1_DXVK_Direct3D9EnableMaximizedWindowedModeShim
+#define DXVK_RegisterAnnotation BO1_DXVK_RegisterAnnotation
+#define DXVK_UnRegisterAnnotation BO1_DXVK_UnRegisterAnnotation
+#define Direct3D9ForceHybridEnumeration BO1_DXVK_Direct3D9ForceHybridEnumeration
+#define Direct3DCreate9On12 BO1_DXVK_Direct3DCreate9On12
+#define Direct3DCreate9On12Ex BO1_DXVK_Direct3DCreate9On12Ex

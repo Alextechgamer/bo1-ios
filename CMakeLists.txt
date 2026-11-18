@@ -57,3 +57,16 @@ if(BO1_BUILD_IOS_PLATFORM)
     "${BO1_DXVK_SOURCE_DIR}/include/native/windows" "${BO1_VULKAN_INCLUDE}")
   target_compile_definitions(bo1_dxvk_platform PRIVATE DXVK_WSI_METAL=1 VK_USE_PLATFORM_METAL_EXT=1)
 endif()
+
+option(BO1_BUILD_IOS_DXVK "Compile and fully link native D3D9 DXVK with static MoltenVK" OFF)
+if(BO1_BUILD_IOS_DXVK)
+  if(NOT BO1_BUILD_IOS_PLATFORM)
+    message(FATAL_ERROR "BO1_BUILD_IOS_DXVK also requires BO1_BUILD_IOS_PLATFORM for the real Metal bridge")
+  endif()
+  set(BO1_IOS_DEPS_DIR "${PROJECT_SOURCE_DIR}/third_party/ios" CACHE PATH "Pinned iOS dependency installation")
+  include(cmake/dxvk-static.cmake)
+  bo1_add_dxvk_d3d9(bo1_dxvk_d3d9 SOURCE_DIR "${BO1_DXVK_SOURCE_DIR}")
+  bo1_add_dxvk_link_probe(bo1_dxvk_link_probe
+    DXVK_TARGET bo1_dxvk_d3d9 PLATFORM_TARGET bo1_ios_host
+    MOLTENVK_LIBRARY "${BO1_IOS_DEPS_DIR}/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a")
+endif()

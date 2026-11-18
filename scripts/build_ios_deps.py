@@ -125,7 +125,7 @@ def fetch_moltenvk(prefix, archive=None):
 def verify_archive(path):
     if not path.is_file():
         raise RuntimeError(f"Expected static library missing: {path}")
-    run(["xcrun", "lipo", "-verify_arch", "arm64", path])
+    run(["xcrun", "lipo", path, "-verify_arch", "arm64"])
 
 
 def build(args, sources):
@@ -149,7 +149,7 @@ def build(args, sources):
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5", "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON",
         "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF", "-DSDL2_DISABLE_SDL2MAIN=ON",
         "-DSDL_AUDIO=ON", "-DSDL_VIDEO=OFF", "-DSDL_RENDER=OFF", "-DSDL_HAPTIC=OFF",
-        "-DSDL_JOYSTICK=OFF", "-DSDL_SENSOR=OFF", "-DSDL_POWER=OFF", "-DSDL_MISC=OFF",
+        "-DSDL_JOYSTICK=OFF", "-DSDL_HIDAPI=OFF", "-DSDL_SENSOR=OFF", "-DSDL_POWER=OFF", "-DSDL_MISC=OFF",
         "-DSDL_DISKAUDIO=OFF", "-DSDL_DUMMYAUDIO=OFF", "-DSDL_SYSTEM_ICONV=OFF"])
     run(["cmake", "--build", sdl_build, "--parallel", args.jobs])
     run(["cmake", "--install", sdl_build])

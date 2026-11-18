@@ -1,0 +1,153 @@
+diff --git a/src/d3d9/d3d9_main.cpp b/src/d3d9/d3d9_main.cpp
+index 9e7aaa2..c99421d 100644
+--- a/src/d3d9/d3d9_main.cpp
++++ b/src/d3d9/d3d9_main.cpp
+@@ -1,3 +1,9 @@
++#if defined(BO1_DXVK_STATIC)
++// BO1 already defines Direct3DCreate9 in its engine-facing D3D9 shim.
++// Keep the statically linked native DXVK entry points in a separate namespace.
++#include "bo1_dxvk_static_exports.h"
++#endif
++
+ #include "../dxvk/dxvk_instance.h"
+ 
+ #include "d3d9_interface.h"
+diff --git a/src/dxvk/dxvk_adapter.cpp b/src/dxvk/dxvk_adapter.cpp
+index f9dbae1..40e0971 100644
+--- a/src/dxvk/dxvk_adapter.cpp
++++ b/src/dxvk/dxvk_adapter.cpp
+@@ -465,6 +465,13 @@ namespace dxvk {
+     enabledFeatures.nvRawAccessChains.shaderRawAccessChains =
+       m_deviceFeatures.nvRawAccessChains.shaderRawAccessChains;
+ 
++#if defined(DXVK_WSI_METAL)
++    // Enable only portability features the driver actually reported. This
++    // does not emulate unsupported Vulkan functionality or relax DXVK needs.
++    if (devExtensions.khrPortabilitySubset)
++      enabledFeatures.khrPortabilitySubset = m_deviceFeatures.khrPortabilitySubset;
++#endif
++
+     // Create pNext chain for additional device features
+     initFeatureChain(enabledFeatures, devExtensions, instance->extensions());
+ 
+@@ -629,6 +636,11 @@ namespace dxvk {
+           enabledFeatures.extPageableDeviceLocalMemory = *reinterpret_cast<const VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT*>(f);
+           break;
+ 
++#if defined(DXVK_WSI_METAL)
++        case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR:
++          enabledFeatures.khrPortabilitySubset = *reinterpret_cast<const VkPhysicalDevicePortabilitySubsetFeaturesKHR*>(f);
++          break;
++#endif
+         case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT:
+           enabledFeatures.extRobustness2 = *reinterpret_cast<const VkPhysicalDeviceRobustness2FeaturesEXT*>(f);
+           break;
+@@ -869,6 +881,13 @@ namespace dxvk {
+     m_deviceFeatures.vk13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+     m_deviceFeatures.vk13.pNext = std::exchange(m_deviceFeatures.core.pNext, &m_deviceFeatures.vk13);
+ 
++#if defined(DXVK_WSI_METAL)
++    if (m_deviceExtensions.supports(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)) {
++      m_deviceFeatures.khrPortabilitySubset.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR;
++      m_deviceFeatures.khrPortabilitySubset.pNext = std::exchange(m_deviceFeatures.core.pNext, &m_deviceFeatures.khrPortabilitySubset);
++    }
++#endif
++
+     if (m_deviceExtensions.supports(VK_AMD_SHADER_FRAGMENT_MASK_EXTENSION_NAME))
+       m_deviceFeatures.amdShaderFragmentMask = VK_TRUE;
+ 
+@@ -1081,6 +1100,9 @@ namespace dxvk {
+       &devExtensions.khrMaintenance5,
+       &devExtensions.khrMaintenance7,
+       &devExtensions.khrPipelineLibrary,
++#if defined(DXVK_WSI_METAL)
++      &devExtensions.khrPortabilitySubset,
++#endif
+       &devExtensions.khrPresentId,
+       &devExtensions.khrPresentWait,
+       &devExtensions.khrSwapchain,
+@@ -1111,6 +1133,13 @@ namespace dxvk {
+     enabledFeatures.vk13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+     enabledFeatures.vk13.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.vk13);
+ 
++#if defined(DXVK_WSI_METAL)
++    if (devExtensions.khrPortabilitySubset) {
++      enabledFeatures.khrPortabilitySubset.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR;
++      enabledFeatures.khrPortabilitySubset.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.khrPortabilitySubset);
++    }
++#endif
++
+     if (devExtensions.amdShaderFragmentMask)
+       enabledFeatures.amdShaderFragmentMask = VK_TRUE;
+ 
+diff --git a/src/dxvk/dxvk_device_info.h b/src/dxvk/dxvk_device_info.h
+index f6d839d..7f981e5 100644
+--- a/src/dxvk/dxvk_device_info.h
++++ b/src/dxvk/dxvk_device_info.h
+@@ -75,6 +75,9 @@ namespace dxvk {
+     VkBool32                                                  khrLoadStoreOpNone;
+     VkPhysicalDeviceMaintenance5FeaturesKHR                   khrMaintenance5;
+     VkPhysicalDeviceMaintenance7FeaturesKHR                   khrMaintenance7;
++#if defined(DXVK_WSI_METAL)
++    VkPhysicalDevicePortabilitySubsetFeaturesKHR              khrPortabilitySubset;
++#endif
+     VkPhysicalDevicePresentIdFeaturesKHR                      khrPresentId;
+     VkPhysicalDevicePresentWaitFeaturesKHR                    khrPresentWait;
+     VkBool32                                                  khrSwapchainMutableFormat;
+diff --git a/src/dxvk/dxvk_extensions.h b/src/dxvk/dxvk_extensions.h
+index 875e143..2cc0cad 100644
+--- a/src/dxvk/dxvk_extensions.h
++++ b/src/dxvk/dxvk_extensions.h
+@@ -325,6 +325,9 @@ namespace dxvk {
+     DxvkExt khrMaintenance5                   = { VK_KHR_MAINTENANCE_5_EXTENSION_NAME,                      DxvkExtMode::Optional };
+     DxvkExt khrMaintenance7                   = { VK_KHR_MAINTENANCE_7_EXTENSION_NAME,                      DxvkExtMode::Optional };
+     DxvkExt khrPipelineLibrary                = { VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,                   DxvkExtMode::Optional };
++#if defined(DXVK_WSI_METAL)
++    DxvkExt khrPortabilitySubset              = { VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,                 DxvkExtMode::Optional };
++#endif
+     DxvkExt khrPresentId                      = { VK_KHR_PRESENT_ID_EXTENSION_NAME,                         DxvkExtMode::Optional };
+     DxvkExt khrPresentWait                    = { VK_KHR_PRESENT_WAIT_EXTENSION_NAME,                       DxvkExtMode::Optional };
+     DxvkExt khrSwapchain                      = { VK_KHR_SWAPCHAIN_EXTENSION_NAME,                          DxvkExtMode::Required };
+diff --git a/src/util/util_env.cpp b/src/util/util_env.cpp
+index c86c3ab..8c54674 100644
+--- a/src/util/util_env.cpp
++++ b/src/util/util_env.cpp
+@@ -6,6 +6,9 @@
+ #ifdef __linux__
+ #include <unistd.h>
+ #include <limits.h>
++#elif defined(__APPLE__)
++#include <mach-o/dyld.h>
++#include <pthread.h>
+ #elif defined(__FreeBSD__)
+ #include <sys/sysctl.h>
+ #include <unistd.h>
+@@ -87,6 +90,15 @@ namespace dxvk::env {
+     exePath.resize(len + 1);
+ 
+     return str::fromws(exePath.data());
++#elif defined(__APPLE__)
++    uint32_t size = 0;
++    _NSGetExecutablePath(nullptr, &size);
++    if (!size)
++      return "";
++    std::vector<char> exePath(size);
++    if (_NSGetExecutablePath(exePath.data(), &size) != 0)
++      return "";
++    return std::string(exePath.data());
+ #elif defined(__linux__)
+     std::array<char, PATH_MAX> exePath = {};
+ 
+@@ -127,7 +139,12 @@ namespace dxvk::env {
+ #else
+     std::array<char, 16> posixName = {};
+     dxvk::str::strlcpy(posixName.data(), name.c_str(), 16);
++#if defined(__APPLE__)
++    // Darwin names the current thread and takes no pthread_t argument.
++    ::pthread_setname_np(posixName.data());
++#else
+     ::pthread_setname_np(pthread_self(), posixName.data());
++#endif
+ #endif
+   }
+ 

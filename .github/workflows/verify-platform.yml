@@ -46,33 +46,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install native build tools
-        run: brew install ninja
+        run: brew install ninja glslang
       - name: Fetch the pinned native audio source
         run: |
           git init vendor/bo1-engine
           git -C vendor/bo1-engine remote add origin https://github.com/SevyW/bo1-zombies-android.git
           git -C vendor/bo1-engine fetch --depth 1 origin e121bab3412988b29534fad26c257adc24329818
           git -C vendor/bo1-engine checkout --detach FETCH_HEAD
+      - name: Fetch all pinned DXVK renderer dependencies
+        run: |
+          git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk
+          git -C vendor/dxvk submodule update --init --recursive --depth 1
+          python3 patches/dxvk/apply.py vendor/dxvk
       - name: Build pinned ARM64 CoreAudio and FFmpeg dependencies
         run: bash scripts/build_ios_deps.sh --jobs 3
-      - name: Configure the actual native mixer and device link probe
+      - name: Configure full native D3D9 renderer and audio mixer
         run: >-
-          cmake -S . -B build-ios-audio -G Xcode
+          cmake -S . -B build-ios-native -G Xcode
           -DCMAKE_TOOLCHAIN_FILE=cmake/ios.cmake
-          -DBO1_BUILD_IOS_AUDIO=ON -DBUILD_TESTING=OFF
+          -DBO1_BUILD_IOS_AUDIO=ON -DBO1_BUILD_IOS_PLATFORM=ON
+          -DBO1_BUILD_IOS_DXVK=ON -DBUILD_TESTING=OFF
           -DBO1_ENGINE_SOURCE_DIR="$PWD/vendor/bo1-engine"
-      - name: Link the native audio mixer against real iOS libraries
-        run: cmake --build build-ios-audio --config Release -- CODE_SIGNING_ALLOWED=NO
+          -DBO1_DXVK_SOURCE_DIR="$PWD/vendor/dxvk"
+      - name: Compile and link actual renderer and audio libraries
+        run: cmake --build build-ios-native --config Release --parallel 3 -- CODE_SIGNING_ALLOWED=NO
       - name: Record device binary platform and dependencies
         run: |
-          xcrun vtool -show-build build-ios-audio/Release-iphoneos/bo1_audio_link_probe > build-ios-audio/audio-platform.txt
-          xcrun otool -L build-ios-audio/Release-iphoneos/bo1_audio_link_probe > build-ios-audio/audio-linkage.txt
+          xcrun vtool -show-build build-ios-native/Release-iphoneos/bo1_audio_link_probe > build-ios-native/audio-platform.txt
+          xcrun otool -L build-ios-native/Release-iphoneos/bo1_audio_link_probe > build-ios-native/audio-linkage.txt
+          xcrun vtool -show-build build-ios-native/Release-iphoneos/bo1_dxvk_link_probe > build-ios-native/renderer-platform.txt
+          xcrun otool -L build-ios-native/Release-iphoneos/bo1_dxvk_link_probe > build-ios-native/renderer-linkage.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ios-audio-build-evidence
+          name: ios-native-build-evidence
           path: |
             third_party/ios/audio-build.json
-            build-ios-audio/audio-platform.txt
-            build-ios-audio/audio-linkage.txt
+            build-ios-native/*-platform.txt
+            build-ios-native/*-linkage.txt
 # This workflow deliberately does not label a platform-only archive as an IPA.
 # Game packaging follows a real linked engine/HUD/renderer adapter and ABI proof.
