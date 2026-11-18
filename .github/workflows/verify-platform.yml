@@ -31,12 +31,16 @@ jobs:
         run: python3 scripts/test_steam_safe_files.py --sanitize address,undefined
       - name: Test real DXVK WSI interface and static loader
         run: python3 graphics/tests/run_wsi_tests.py vendor/dxvk
-  apple-sdk-compile:
+  steam-swift-tests:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Test Steam selection, content verification and installation recovery
         run: python3 scripts/test_steam_selection_storage.py
+  apple-sdk-compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
       - name: Fetch pinned DXVK source
         run: |
           git clone --branch v2.6.1 --depth 1 https://github.com/doitsujin/dxvk.git vendor/dxvk

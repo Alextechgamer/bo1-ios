@@ -560,10 +560,20 @@ private enum BO1SteamSelectionStorageTests {
             try runCrashChild(URL(fileURLWithPath: CommandLine.arguments[2]))
         }
         let checks = Checks()
-        try selectionTests(checks)
-        try parserTests(checks)
-        try await storageTests(checks)
-        try await contentTests(checks)
+        var phase = "selection"
+        do {
+            try selectionTests(checks)
+            phase = "parser"
+            try parserTests(checks)
+            phase = "storage"
+            try await storageTests(checks)
+            phase = "content"
+            try await contentTests(checks)
+        } catch {
+            let message = "Steam host test failed in \(phase) phase after \(checks.count) checks: \(error)\n"
+            try? FileHandle.standardError.write(contentsOf: Data(message.utf8))
+            throw error
+        }
         print("Steam selection/storage: \(checks.count) checks passed")
     }
 }

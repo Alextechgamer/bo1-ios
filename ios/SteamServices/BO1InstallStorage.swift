@@ -238,7 +238,7 @@ final class BO1InstallStorage: @unchecked Sendable {
             do {
                 let attributes = try FileManager.default.attributesOfItem(atPath: current.path)
                 guard attributes[.type] as? FileAttributeType == .typeDirectory else {
-                    throw BO1DownloadError.invalid("The app-container parent is not a real directory.")
+                    throw BO1DownloadError.invalid("The app-container parent is not a real directory: \(current.path).")
                 }
             } catch let error as NSError where error.domain == NSCocoaErrorDomain &&
                 (error.code == NSFileNoSuchFileError || error.code == NSFileReadNoSuchFileError) {
@@ -264,8 +264,14 @@ final class BO1InstallStorage: @unchecked Sendable {
     private static func systemCanonicalURL(_ url: URL) -> URL {
         let standardized = url.standardizedFileURL
         for prefix in ["/var", "/tmp"] where standardized.path == prefix || standardized.path.hasPrefix(prefix + "/") {
-            let resolved = URL(fileURLWithPath: prefix, isDirectory: true).resolvingSymlinksInPath().path
-            return URL(fileURLWithPath: resolved + String(standardized.path.dropFirst(prefix.count)))
+            // NSURL.resolvingSymlinksInPath may shorten /private/var back to
+            // /var on Apple platforms. Resolve only the exact OS-owned prefix
+            // with POSIX and retain its literal result; never resolve a game,
+            // staging, or other caller-controlled descendant through a link.
+            guard let resolved = prefix.withCString({ realpath($0, nil) }) else { return standardized }
+            defer { free(resolved) }
+            let absolutePrefix = String(cString: resolved)
+            return URL(fileURLWithPath: absolutePrefix + String(standardized.path.dropFirst(prefix.count)))
         }
         return standardized
     }
