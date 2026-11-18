@@ -12,14 +12,14 @@ not evidence that its engine, input bridge, downloader, or build already exists.
 
 | Component | Behavior and current limit |
 | --- | --- |
-| UIKit app host | App delegate, CAMetalLayer view, physical pixel sizing, landscape layout, Files instructions and startup gate. Apple SDK/device execution remains unverified. |
+| UIKit app host | App delegate, CAMetalLayer view, physical pixel sizing, landscape layout, Files instructions and startup gate. ARM64 compilation with the iPhone SDK passed; device execution remains unverified. |
 | Game thread | One checked launch attempt on a detached 64 MiB pthread; explicit initialization, exception and return handling. This does not solve the engine's low-address pointer ABI. |
 | Input/HUD integration | A real HUD is mounted through the required native adapter and input is submitted each display tick. No native BO1 HUD implementation is supplied yet. |
 | Lifecycle | Resign-active requests pause, resets input and calls an explicit renderer drain contract; foreground prepares resources before releasing pause. The actual engine/DXVK submission synchronization remains to be implemented. |
 | Download integration | A real BO1 downloader can supply a view controller through the adapter. Files import is the immediate UI path. No BO2 downloader is silently repurposed. |
 | Metal/Vulkan bridge | Retained CAMetalLayer, stable opaque HWND token, atomic drawable dimensions, static MoltenVK surface creation and explicit errors. |
 | DXVK WSI | Complete v2.6.1 driver, factory registration, native build selection, static Vulkan loader patch and source-level behavioral tests against upstream. Not the whole DXVK renderer. |
-| Build checks | Portable tests and an iOS static-library CMake target. A GitHub Actions workflow is provided for host tests and Apple SDK compilation; it has not run as part of this initial local delivery. |
+| Build checks | Portable tests and iOS static-library compilation both passed in GitHub Actions. See the linked run and exact tested revision in `docs/VALIDATION.md`. |
 
 The mandatory `BO1IOSCreateHostServices` factory has no default implementation.
 An app link therefore cannot succeed until the actual engine, native input/HUD,

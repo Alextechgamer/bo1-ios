@@ -1,4 +1,32 @@
-# Validation — initial platform project
+# Validation — platform project
+
+## GitHub verification — November 17, 2026 (Pacific time)
+
+Code revision: `fc8db4d5cc566d0a2ff786338fe3887d161458a7`.
+[Successful workflow run](https://github.com/Alextechgamer/bo1-ios/actions/runs/44236856910).
+
+| Job | Result | Evidence and scope |
+| --- | --- | --- |
+| `host-tests` | PASS | 14 production-code platform checks with AddressSanitizer/UndefinedBehaviorSanitizer, followed by the real DXVK WSI/dispatcher/loader harness |
+| `apple-sdk-compile` | PASS | UIKit host, app entrypoint, Metal bridge, DXVK Metal provider, dispatcher and static-loader sources compiled for device ARM64; platform archives created |
+
+The Apple job used the `macos-15` runner, Xcode 16.4, AppleClang
+17.0.0.17000013 and the iPhoneOS 18.5 SDK, with an iOS 16.0 deployment target.
+No code compilation warnings were reported. The dependency clone emitted an
+annotated-tag warning, then checked out the exact revision and passed its pin
+verification.
+
+The initial run at `847b3338e67d04dc063c023983e11685e20b1076` caught missing
+ARC on the mixed C++/Objective-C++ Xcode target. The fix sets ARC explicitly
+on the `.mm` sources and enables Xcode's ARC target setting. The bridge's
+compile-time ARC requirement remains enabled. The successful rerun covers
+that fix.
+
+This verifies compilation of static platform libraries and the entrypoint.
+It does not resolve the required engine factory, link a full application,
+link the complete DXVK/MoltenVK renderer, or produce an IPA.
+
+## Earlier local checks
 
 Executed on the Linux x86-64 workspace on November 16, 2026 (Pacific time).
 These results cover the source in this package, not a compiled iPhone game.
@@ -24,7 +52,6 @@ exercise a real Vulkan driver or a UIKit view.
 
 ## Not yet demonstrated
 
-- Apple SDK compilation of the Objective-C++ host and platform archives.
 - Linking the complete DXVK renderer and static MoltenVK for iOS.
 - A compatible iOS implementation of the BO1 ptr32/low-address memory model.
 - The real `BO1IOSCreateHostServices` engine/HUD/input/lifecycle adapter.
@@ -33,5 +60,5 @@ exercise a real Vulkan driver or a UIKit view.
   aim assist, memory behavior, safe backgrounding or performance on an iPhone.
 - A generated, signed or installed IPA.
 
-The on-push verification workflow is source supplied for a future repository.
-Its presence is not a claim that a macOS runner has executed it successfully.
+The on-push verification workflow is active in `Alextechgamer/bo1-ios`.
+The latest observed run above verifies the exact code revision recorded there.
